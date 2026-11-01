@@ -1,5 +1,5 @@
 # Release builds: static binaries, .deb/.rpm/.apk/Arch packages and checksums.
-# Run by .github/workflows/release.yml when a tag v* is pushed.
+# Run by .github/workflows/release.yml when a release is published on GitHub.
 version: 2
 
 project_name: nabd
@@ -111,6 +111,8 @@ release:
   github:
     owner: s0sta
     name: nabd
+  # the release is published by hand on GitHub; GoReleaser adds the files and writes the notes
+  mode: replace
   name_template: "nabd {{ .Version }}"
   footer: |
     ## Install

@@ -1,8 +1,10 @@
 name: release
 
+# Publish a release on GitHub (Releases → Draft a new release → tag vX.Y.Z → Publish).
+# This workflow then builds the files and adds them to that release.
 on:
-  push:
-    tags: ["v*"]
+  release:
+    types: [published]
 
 permissions:
   contents: write       # create the release

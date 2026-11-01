@@ -45,6 +45,15 @@ You need Go 1.19 or newer. nabd uses the Go standard library only; please do not
 - **Test with a fake machine.** See `internal/checks/checks_test.go`: build the files and command outputs of
   the situation, run the check, assert the finding.
 
+## Making a release
+
+1. Set the new version in `cmd/nabd/main.go` (`releaseVersion`), `docs/nabd.1` (first line), `CHANGELOG.md` and the
+   files in `packaging/` (debian/changelog, rpm spec, PKGBUILD, APKBUILD).
+2. On GitHub: **Releases → Draft a new release**, type the new tag `vX.Y.Z` (target `main`), title `nabd X.Y.Z`,
+   then **Publish release**.
+3. The `release` workflow builds the binaries and packages, adds them with `SHA256SUMS` to the release, writes the
+   notes and signs the build provenance.
+
 ## Pull requests
 
 - One topic per pull request; `make test` must pass and `gofmt` must be clean.
