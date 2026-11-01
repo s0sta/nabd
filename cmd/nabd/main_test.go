@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"runtime/debug"
 	"strings"
 	"testing"
 	"time"
@@ -198,5 +199,24 @@ func TestVersionAndHelp(t *testing.T) {
 	}
 	if code, out, _ := runWith(t, f, "checks"); code != 0 || strings.Count(out, "\n") != 14 {
 		t.Fatalf("checks: %d %s", code, out)
+	}
+}
+
+func TestVersionFrom(t *testing.T) {
+	rev := []debug.BuildSetting{{Key: "vcs.revision", Value: "305abc563e0302f254a0a09c8e9901b1c2312e16"}}
+	cases := []struct {
+		bi   *debug.BuildInfo
+		want string
+	}{
+		{nil, releaseVersion},
+		{&debug.BuildInfo{Main: debug.Module{Version: "v1.2.3"}}, "1.2.3"},
+		{&debug.BuildInfo{Main: debug.Module{Version: "(devel)"}}, releaseVersion},
+		{&debug.BuildInfo{Main: debug.Module{Version: "v0.0.0-20261101210729-305abc563e03"}, Settings: rev}, releaseVersion + "-dev+305abc5"},
+		{&debug.BuildInfo{Main: debug.Module{Version: "v0.1.1-0.20261101210729-305abc563e03+dirty"}}, releaseVersion + "-dev+305abc5"},
+	}
+	for _, c := range cases {
+		if got := versionFrom(c.bi); got != c.want {
+			t.Errorf("%+v: got %q, want %q", c.bi, got, c.want)
+		}
 	}
 }

@@ -19,6 +19,7 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: stable
+          cache: false
       - uses: goreleaser/goreleaser-action@v6
         with:
           distribution: goreleaser
@@ -27,6 +28,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - uses: actions/attest-build-provenance@v1
+        # attestations need a public repository (or GitHub Enterprise)
+        if: ${{ !github.event.repository.private }}
         with:
           subject-path: |
             dist/*.tar.gz

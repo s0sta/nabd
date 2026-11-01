@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"runtime/debug"
 	"strconv"
@@ -37,14 +38,34 @@ var version = ""
 const releaseVersion = "0.1.0"
 
 func init() {
-	if version != "" {
-		return
+	if version == "" {
+		bi, _ := debug.ReadBuildInfo()
+		version = versionFrom(bi)
 	}
-	if bi, ok := debug.ReadBuildInfo(); ok && strings.HasPrefix(bi.Main.Version, "v") {
-		version = strings.TrimPrefix(bi.Main.Version, "v")
-		return
+}
+
+// pseudoRe matches Go pseudo-versions (a build of a commit between releases).
+var pseudoRe = regexp.MustCompile(`\d{14}-[0-9a-f]{12}(\+dirty)?$`)
+
+// versionFrom picks the version from the build info: a release tag as it is,
+// a commit between releases as "0.1.0-dev+305abc5".
+func versionFrom(bi *debug.BuildInfo) string {
+	if bi == nil {
+		return releaseVersion
 	}
-	version = releaseVersion
+	v := bi.Main.Version
+	if strings.HasPrefix(v, "v") && !pseudoRe.MatchString(v) {
+		return strings.TrimPrefix(v, "v")
+	}
+	for _, s := range bi.Settings {
+		if s.Key == "vcs.revision" && len(s.Value) >= 7 {
+			return releaseVersion + "-dev+" + s.Value[:7]
+		}
+	}
+	if m := regexp.MustCompile(`-([0-9a-f]{12})(\+dirty)?$`).FindStringSubmatch(v); m != nil {
+		return releaseVersion + "-dev+" + m[1][:7]
+	}
+	return releaseVersion
 }
 
 // exit codes for errors of nabd itself (bad options, unreadable files).
