@@ -1,0 +1,6 @@
+completions/_nabd usr/share/zsh/vendor-completions
+completions/nabd.fish usr/share/fish/vendor_completions.d
+contrib/systemd/nabd-snapshot.service usr/lib/systemd/system
+contrib/systemd/nabd-snapshot.timer usr/lib/systemd/system
+contrib/systemd/nabd-prometheus.service usr/lib/systemd/system
+contrib/systemd/nabd-prometheus.timer usr/lib/systemd/system

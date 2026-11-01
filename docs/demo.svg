@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="938" height="817" viewBox="0 0 938 817" role="img" aria-label="nabd output on a demo server">
+<style>text{font-family:ui-monospace,'SFMono-Regular','JetBrains Mono','DejaVu Sans Mono',Menlo,Consolas,monospace;font-size:13px;white-space:pre}</style>
+<rect width="938" height="817" rx="10" fill="#0d1117"/>
+<path d="M0 10a10 10 0 0 1 10-10h918a10 10 0 0 1 10 10v20H0z" fill="#161b22"/>
+<circle cx="20" cy="15" r="5.5" fill="#ff5f57"/><circle cx="38" cy="15" r="5.5" fill="#febc2e"/><circle cx="56" cy="15" r="5.5" fill="#28c840"/>
+<text x="469.0" y="19.5" fill="#8b949e" text-anchor="middle" style="font-size:12px">root@web-prod-1: ~</text>
+<text y="60"><tspan x="22.0" fill="#5fd38d">$</tspan><tspan x="29.9" fill="#d7dae0"> nabd</tspan></text>
+<text y="98"><tspan x="22.0" fill="#d7dae0" font-weight="700">nabd 0.1.0</tspan><tspan x="100.5" fill="#d7dae0"> </tspan><tspan x="108.3" fill="#8b949e">· web-prod-1 · Ubuntu 24.04.1 LTS · kernel 6.8.0-45-generic · up 41 days</tspan></text>
+<text y="136"><tspan x="22.0" fill="#d7dae0"> </tspan><tspan x="29.9" fill="#ff6b6b" font-weight="700">✖ CRIT</tspan><tspan x="76.9" fill="#d7dae0">  </tspan><tspan x="92.6" fill="#7d8590">disk     </tspan><tspan x="163.3" fill="#d7dae0"> </tspan><tspan x="171.1" fill="#d7dae0" font-weight="700">/var is 96% full (1.4 GB free of 40.0 GB)</tspan></text>
+<text y="155"><tspan x="22.0" fill="#d7dae0">                  </tspan><tspan x="163.3" fill="#7d8590">why   </tspan><tspan x="210.4" fill="#d7dae0">10.7 GB in journal logs (/var/log/journal)</tspan></text>
+<text y="174"><tspan x="22.0" fill="#d7dae0">                  </tspan><tspan x="163.3" fill="#7d8590">fix   </tspan><tspan x="210.4" fill="#56d4dd">journalctl --vacuum-size=500M</tspan></text>
+<text y="193"><tspan x="22.0" fill="#d7dae0">                        </tspan><tspan x="210.4" fill="#7d8590"># for good: SystemMaxUse=500M in /etc/systemd/journald.conf, then restart systemd-journald</tspan></text>
+<text y="212"><tspan x="22.0" fill="#d7dae0">                        </tspan><tspan x="210.4" fill="#56d4dd">nabd why disk /var</tspan><tspan x="351.7" fill="#7d8590">   # the biggest folders and files</tspan></text>
+<text y="231"><tspan x="22.0" fill="#d7dae0"> </tspan><tspan x="29.9" fill="#ff6b6b" font-weight="700">✖ CRIT</tspan><tspan x="76.9" fill="#d7dae0">  </tspan><tspan x="92.6" fill="#7d8590">ports    </tspan><tspan x="163.3" fill="#d7dae0"> </tspan><tspan x="171.1" fill="#d7dae0" font-weight="700">Redis listens on 0.0.0.0:6379: other machines can connect</tspan></text>
+<text y="250"><tspan x="22.0" fill="#d7dae0">                  </tspan><tspan x="163.3" fill="#7d8590">why   </tspan><tspan x="210.4" fill="#d7dae0">Redis has no password by default; open Redis servers are attacked within</tspan></text>
+<text y="269"><tspan x="22.0" fill="#d7dae0">                        hours</tspan></text>
+<text y="288"><tspan x="22.0" fill="#d7dae0">                        process: redis-server (pid 1187, redis-server.service)</tspan></text>
+<text y="307"><tspan x="22.0" fill="#d7dae0">                        no active firewall was found</tspan></text>
+<text y="326"><tspan x="22.0" fill="#d7dae0">                  </tspan><tspan x="163.3" fill="#7d8590">fix   </tspan><tspan x="210.4" fill="#7d8590"># in redis.conf: `bind 127.0.0.1 -::1` and `protected-mode yes`, then restart redis</tspan></text>
+<text y="345"><tspan x="22.0" fill="#d7dae0"> </tspan><tspan x="29.9" fill="#ff6b6b" font-weight="700">✖ CRIT</tspan><tspan x="76.9" fill="#d7dae0">  </tspan><tspan x="92.6" fill="#7d8590">services </tspan><tspan x="163.3" fill="#d7dae0"> </tspan><tspan x="171.1" fill="#d7dae0" font-weight="700">nginx.service failed 25 min ago</tspan></text>
+<text y="364"><tspan x="22.0" fill="#d7dae0">                  </tspan><tspan x="163.3" fill="#7d8590">why   </tspan><tspan x="210.4" fill="#d7dae0">the program stopped with an error (exit code 1); its log lines say which</tspan></text>
+<text y="383"><tspan x="22.0" fill="#d7dae0">                        config test (nginx -t): nginx: [emerg] unknown directive &quot;servr&quot; in</tspan></text>
+<text y="402"><tspan x="22.0" fill="#d7dae0">                        /etc/nginx/sites-enabled/shop:14</tspan></text>
+<text y="421"><tspan x="22.0" fill="#d7dae0">                        file /etc/nginx/sites-enabled/shop changed 2 min before it failed (14:33)</tspan></text>
+<text y="440"><tspan x="22.0" fill="#d7dae0">                  </tspan><tspan x="163.3" fill="#7d8590">fix   </tspan><tspan x="210.4" fill="#7d8590"># the error is in /etc/nginx/sites-enabled/shop, line 14</tspan></text>
+<text y="459"><tspan x="22.0" fill="#d7dae0">                        </tspan><tspan x="210.4" fill="#56d4dd">nginx -t</tspan><tspan x="273.2" fill="#7d8590">   # must say OK before you restart</tspan></text>
+<text y="478"><tspan x="22.0" fill="#d7dae0">                        </tspan><tspan x="210.4" fill="#56d4dd">systemctl restart nginx.service</tspan></text>
+<text y="497"><tspan x="22.0" fill="#d7dae0">                        </tspan><tspan x="210.4" fill="#56d4dd">journalctl -u nginx.service -b -e</tspan></text>
+<text y="516"><tspan x="22.0" fill="#d7dae0">                        </tspan><tspan x="210.4" fill="#56d4dd">nabd why service nginx</tspan></text>
+<text y="535"><tspan x="22.0" fill="#d7dae0"> </tspan><tspan x="29.9" fill="#f7c95c" font-weight="700">▲ WARN</tspan><tspan x="76.9" fill="#d7dae0">  </tspan><tspan x="92.6" fill="#7d8590">certs    </tspan><tspan x="163.3" fill="#d7dae0"> </tspan><tspan x="171.1" fill="#d7dae0" font-weight="700">the certificate for shop.example.com expires in 12 days</tspan></text>
+<text y="554"><tspan x="22.0" fill="#d7dae0">                  </tspan><tspan x="163.3" fill="#7d8590">why   </tspan><tspan x="210.4" fill="#d7dae0">file: /etc/letsencrypt/live/shop.example.com/fullchain.pem (used by nginx)</tspan></text>
+<text y="573"><tspan x="22.0" fill="#d7dae0">                        valid until 2026-11-13 13:00 UTC</tspan></text>
+<text y="592"><tspan x="22.0" fill="#d7dae0">                        certbot renews 30 days before the end, so the automatic renewal is failing</tspan></text>
+<text y="611"><tspan x="22.0" fill="#d7dae0">                  </tspan><tspan x="163.3" fill="#7d8590">fix   </tspan><tspan x="210.4" fill="#56d4dd">certbot renew --dry-run</tspan><tspan x="390.9" fill="#7d8590">   # shows why it fails</tspan></text>
+<text y="630"><tspan x="22.0" fill="#d7dae0">                        </tspan><tspan x="210.4" fill="#56d4dd">systemctl list-timers &#x27;*certbot*&#x27;</tspan><tspan x="469.4" fill="#7d8590">   # is the renewal timer on?</tspan></text>
+<text y="649"><tspan x="22.0" fill="#d7dae0"> </tspan><tspan x="29.9" fill="#f7c95c" font-weight="700">▲ WARN</tspan><tspan x="76.9" fill="#d7dae0">  </tspan><tspan x="92.6" fill="#7d8590">reboot   </tspan><tspan x="163.3" fill="#d7dae0"> </tspan><tspan x="171.1" fill="#d7dae0" font-weight="700">an update needs a reboot</tspan></text>
+<text y="668"><tspan x="22.0" fill="#d7dae0">                  </tspan><tspan x="163.3" fill="#7d8590">why   </tspan><tspan x="210.4" fill="#d7dae0">updated: linux-image-6.8.0-48-generic</tspan></text>
+<text y="687"><tspan x="22.0" fill="#d7dae0">                  </tspan><tspan x="163.3" fill="#7d8590">fix   </tspan><tspan x="210.4" fill="#56d4dd">reboot</tspan><tspan x="257.5" fill="#7d8590">   # at a good time</tspan></text>
+<text y="725"><tspan x="22.0" fill="#d7dae0"> </tspan><tspan x="29.9" fill="#5fd38d" font-weight="700">✔ 9 checks OK</tspan><tspan x="131.9" fill="#d7dae0"> </tspan><tspan x="139.8" fill="#8b949e"> memory · cpu · kernel · time · packages · network · ssh · procs · accounts</tspan></text>
+<text y="763"><tspan x="22.0" fill="#d7dae0"> </tspan><tspan x="29.9" fill="#d7dae0" font-weight="700">5 problems: </tspan><tspan x="124.0" fill="#ff6b6b" font-weight="700">3 critical</tspan><tspan x="202.5" fill="#d7dae0">, </tspan><tspan x="218.2" fill="#f7c95c" font-weight="700">2 warnings</tspan><tspan x="296.8" fill="#7d8590"> · 1.0 s</tspan></text>
+<text y="782"><tspan x="22.0" fill="#7d8590"> more: nabd why disk|slow|memory|service NAME|port N|dns|boot · nabd changes · nabd --json</tspan></text>
+</svg>

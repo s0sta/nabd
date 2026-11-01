@@ -1,0 +1,20 @@
+name: Missed problem
+description: A real problem that nabd did not find
+labels: [missed-problem]
+body:
+  - type: textarea
+    attributes:
+      label: What was wrong
+      description: The problem, and the command or log that showed it.
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: What nabd said
+      description: The output of nabd (or nabd --json). Remove what is private.
+  - type: input
+    attributes:
+      label: Distribution and nabd version
+      placeholder: Rocky Linux 9, nabd 0.1.0
+    validations:
+      required: true

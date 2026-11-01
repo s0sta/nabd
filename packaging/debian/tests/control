@@ -1,0 +1,5 @@
+Test-Command: nabd version && nabd checks >/dev/null && { nabd --json --skip cpu > "$AUTOPKGTEST_TMP/out.json"; test $? -le 3; } && grep -q '"schema": "nabd/1"' "$AUTOPKGTEST_TMP/out.json" && ! grep -q '\.error"' "$AUTOPKGTEST_TMP/out.json"
+Restrictions: allow-stderr, superficial
+
+Test-Command: NABD_STATE_DIR="$AUTOPKGTEST_TMP" nabd snapshot && NABD_STATE_DIR="$AUTOPKGTEST_TMP" nabd diff --json >/dev/null; test $? -le 2
+Restrictions: allow-stderr, superficial

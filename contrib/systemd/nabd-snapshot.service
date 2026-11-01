@@ -1,0 +1,17 @@
+[Unit]
+Description=Save a nabd snapshot of the security state
+Documentation=man:nabd(1) https://github.com/s0sta/nabd
+
+[Service]
+Type=oneshot
+# keeps 60 days; "nabd diff --since 7d" compares with a week ago
+ExecStart=/usr/bin/nabd snapshot --keep 60
+StateDirectory=nabd
+StateDirectoryMode=0700
+# nabd only reads; the system is read-only for it, except its state folder.
+# No PrivateTmp: the snapshot must see SUID files in /tmp.
+ProtectSystem=strict
+ProtectHome=read-only
+NoNewPrivileges=yes
+Nice=10
+IOSchedulingClass=idle

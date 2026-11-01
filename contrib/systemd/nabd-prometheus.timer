@@ -1,0 +1,11 @@
+[Unit]
+Description=Update nabd metrics every 5 minutes
+Documentation=man:nabd(1)
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+RandomizedDelaySec=30s
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,34 @@
+Source: nabd
+Section: admin
+Priority: optional
+Maintainer: Hosam Hani <76218642+s0sta@users.noreply.github.com>
+Build-Depends: debhelper-compat (= 13),
+               dh-sequence-golang,
+               golang-any (>= 2:1.19~)
+Standards-Version: 4.7.0
+Homepage: https://github.com/s0sta/nabd
+Vcs-Browser: https://github.com/s0sta/nabd
+Vcs-Git: https://github.com/s0sta/nabd.git
+Rules-Requires-Root: no
+XS-Go-Import-Path: github.com/s0sta/nabd
+Testsuite: autopkgtest
+
+Package: nabd
+Architecture: any
+Depends: ${misc:Depends},
+         ${shlibs:Depends}
+Built-Using: ${misc:Built-Using}
+Description: doctor for Linux servers: finds problems and gives the fix
+ nabd checks a Linux machine in about a second: disk space and inodes,
+ memory, CPU, failed services, kernel log errors, time sync, pending
+ reboots, package state, network and DNS, open ports, SSH settings, TLS
+ certificates, processes and accounts. For each problem it explains the
+ cause in plain words and prints the command that fixes it.
+ .
+ "nabd why" explores one question in depth (disk, slow, memory, service,
+ port, dns, boot). "nabd changes" shows a timeline of recent changes, and
+ "nabd snapshot" with "nabd diff" finds drift such as new admin users,
+ SUID files or open ports.
+ .
+ nabd only reads: it never changes the system. Its output is text, JSON,
+ Markdown, Nagios plugin output or Prometheus metrics.

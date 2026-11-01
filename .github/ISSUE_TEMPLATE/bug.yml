@@ -1,0 +1,19 @@
+name: Bug
+description: nabd crashed, hung, or a finding ends in .error
+labels: [bug]
+body:
+  - type: textarea
+    attributes:
+      label: What happened
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Output
+      description: The command you ran and its output. Remove what is private.
+      render: text
+  - type: input
+    attributes:
+      label: Distribution and nabd version
+    validations:
+      required: true

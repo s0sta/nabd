@@ -1,0 +1,16 @@
+[Unit]
+Description=Write nabd metrics for the node_exporter textfile collector
+Documentation=man:nabd(1) https://github.com/s0sta/nabd/blob/main/docs/output.md
+
+[Service]
+Type=oneshot
+# Set the folder to the --collector.textfile.directory of your node_exporter.
+Environment=NABD_PROM_DIR=/var/lib/prometheus/node-exporter
+ExecStart=/usr/bin/nabd --prometheus --quiet --output ${NABD_PROM_DIR}/nabd.prom
+# nabd exits 1 or 2 when it finds problems: that is not a failure of this job
+SuccessExitStatus=1 2 3
+ProtectSystem=strict
+ReadWritePaths=-/var/lib/prometheus/node-exporter -/var/lib/node_exporter
+ProtectHome=read-only
+NoNewPrivileges=yes
+Nice=10

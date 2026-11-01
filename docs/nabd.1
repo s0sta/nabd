@@ -1,0 +1,345 @@
+.TH NABD 1 "2026-11-02" "nabd 0.1.0" "User Commands"
+.SH NAME
+nabd \- a doctor for Linux servers: finds problems, explains them and gives the fix
+.SH SYNOPSIS
+.B nabd
+.RB [ check ]
+.RI [ options ]
+.br
+.B nabd why
+.I topic
+.RI [ arg ]
+.RI [ options ]
+.br
+.B nabd changes
+.RB [ \-\-since
+.IR when ]
+.RI [ options ]
+.br
+.B nabd snapshot
+.RB [ \-\-keep
+.IR n ]
+.RB [ \-\-list ]
+.RB [ \-\-dir
+.IR dir ]
+.br
+.B nabd diff
+.RI [ old " [" new ]]
+.RI [ options ]
+.br
+.B nabd checks
+|
+.B nabd version
+|
+.B nabd help
+.RI [ command ]
+.SH DESCRIPTION
+.B nabd
+checks a Linux machine in about a second: disk space and inodes, memory, CPU,
+failed services, the kernel log, time synchronisation, pending reboots,
+package state, network and DNS, open ports, SSH settings, TLS certificates,
+processes and accounts.
+For each problem it says what is wrong and why, in plain words, and prints the
+command that fixes it.
+.PP
+.B nabd
+only reads.
+It never writes, deletes, restarts or installs anything.
+.B nabd snapshot
+writes only its own snapshot files, and
+.B \-o
+writes only the file that you name.
+It sends nothing over the network; only
+.B nabd why dns
+sends DNS queries.
+.PP
+.B nabd
+works without root and tells you what it could not read;
+.B sudo nabd
+sees everything.
+.SH COMMANDS
+.TP
+.BR check " (the default)"
+Run all checks.
+Problems come first, worst first, each with
+.IR why ,
+.I fix
+and sometimes a
+.IR note .
+Lines of a fix that start with
+.B #
+are advice, the others are commands.
+.TP
+.BI "why " topic " \fR[\fIarg\fR]"
+Explain one question in depth.
+The topics are:
+.RS
+.TP
+.BR disk " [\fIpath\fR]"
+What fills a file system: the biggest folders and files, logs, caches,
+container images and deleted files that a process still keeps open.
+Without a path, the fullest file system.
+.TP
+.B slow
+What slows the machine now: CPU, memory, the disk, a network or FUSE file
+system, or the hypervisor (steal), and which process.
+.TP
+.B memory
+Who uses the memory, OOM kills, swap and tmpfs.
+.TP
+.BI "service " name
+Why a service stopped or misbehaves: what the exit code means, the result of
+its config test, the files and packages that changed before, and the logs.
+.TP
+.BI "port " n
+Who listens on the port, from which package, which config sets it, who can
+connect, and the firewall.
+.TP
+.BR dns " [\fIname\fR]"
+Asks every DNS server for the name (default: example.com) and shows which one
+fails.
+This sends DNS queries.
+.TP
+.B boot
+How the last boot went: slow units, failures, and whether the previous
+shutdown was clean.
+.RE
+.IP
+Short forms: a number is a port
+.RB ( "nabd why 443" ),
+a path is a disk
+.RB ( "nabd why /var" ),
+any other word is a service
+.RB ( "nabd why nginx" ).
+.TP
+.B changes
+A timeline of what changed: packages, files in
+.IR /etc ,
+SSH keys, cron tables, logins, boots and failed services.
+It reads logs and file times and needs no earlier snapshot.
+Changes that touch security are marked with
+.BR ! .
+.TP
+.B snapshot
+Save the security state of the machine: users, members of admin groups,
+SUID and SGID files, open ports, enabled services, packages, the firewall and
+SELinux state, kernel settings, and a SHA-256 hash of every file in
+.IR /etc ,
+of SSH
+.I authorized_keys
+files and of cron tables.
+After saving, it prints how the state differs from the previous snapshot.
+.TP
+.BR diff " [\fIold\fR [\fInew\fR]]"
+Compare two states.
+.I old
+and
+.I new
+are snapshot files or names, or one of
+.BR last ,
+.BR prev ,
+.B first
+and
+.BR now .
+Without arguments: the last snapshot and now.
+.TP
+.B checks
+List the checks.
+.TP
+.B version
+Print the version.
+.SH OPTIONS
+Options can be written before or after the command.
+.SS Output
+.TP
+.B \-\-json
+JSON for scripts (schema
+.BR nabd/1 ).
+.TP
+.BR \-\-md ", " \-\-markdown
+Markdown for a ticket or a chat.
+.TP
+.B \-\-nagios
+Nagios plugin output: a status line with performance data, then one line per
+problem.
+.TP
+.BR \-\-prometheus ", " \-\-prom
+Metrics in the Prometheus text format, for the textfile collector of
+node_exporter.
+.TP
+.BR \-o ", " \-\-output " \fIfile\fR"
+Write the output to
+.I file
+instead of standard output.
+The file is replaced atomically.
+.TP
+.BR \-v ", " \-\-verbose
+Also show the checks that are OK and why a check was skipped.
+.TP
+.BR \-q ", " \-\-quiet
+Show only problems, no notes.
+.TP
+.BI \-\-color " when"
+.BR auto " (default), " always " or " never .
+.B NO_COLOR
+is respected.
+.B \-\-no\-color
+is the same as
+.BR "\-\-color never" .
+.TP
+.B \-\-ascii
+Use plain ASCII symbols.
+.SS Checks
+.TP
+.BI \-\-only " list"
+Run only these checks (a comma separated list; see
+.BR "nabd checks" ).
+.TP
+.BI \-\-skip " list"
+Do not run these checks.
+.TP
+.BI \-\-timeout " duration"
+The time limit for each check (default 15s), or for the scan of
+.B why disk
+(default 20s).
+Examples: 30s, 2m.
+.SS Time
+.TP
+.BI \-\-since " when"
+For
+.B changes
+(default: 24h) and
+.BR diff .
+.I when
+is a duration (90m, 24h, 3d, 1w),
+.BR today ,
+.BR yesterday ,
+.B boot
+or a date (2026\-11\-01, "2026\-11\-01 14:00").
+.SS Snapshots
+.TP
+.BI \-\-keep " n"
+Keep only the newest
+.I n
+snapshots.
+.TP
+.B \-\-list
+List the saved snapshots.
+.TP
+.BI \-\-dir " dir"
+The folder of the snapshots.
+.SH EXIT STATUS
+For
+.B check
+and
+.BR why ,
+the Nagios plugin rule:
+.TP
+.B 0
+healthy (notes do not count)
+.TP
+.B 1
+a warning
+.TP
+.B 2
+a critical problem
+.TP
+.B 3
+unknown: a check could not finish, or nabd could not run (for example a bad option)
+.PP
+For
+.B changes
+and
+.BR diff :
+0 when nothing changed, 1 when something changed, 2 for a critical difference
+(diff only: a new UID 0 account, a SUID file in /tmp, /var/tmp, /dev/shm or
+/home), 3 for an error.
+.SH FILES
+.TP
+.I /var/lib/nabd/snapshots
+Snapshots taken as root.
+.TP
+.I $XDG_STATE_HOME/nabd/snapshots
+Snapshots of a normal user (default
+.IR ~/.local/state/nabd/snapshots ).
+.SH ENVIRONMENT
+.TP
+.B NABD_STATE_DIR
+Use this folder for snapshots (they go to
+.IR $NABD_STATE_DIR/snapshots ).
+.TP
+.B NO_COLOR
+No colours when set.
+.TP
+.B COLUMNS
+The width of the terminal.
+.SH EXAMPLES
+.TP
+.B sudo nabd
+Check everything.
+.TP
+.B nabd why disk /var
+What fills /var.
+.TP
+.B nabd why nginx
+Why nginx stopped.
+.TP
+.B nabd changes \-\-since boot
+What changed since the machine started.
+.TP
+.B sudo systemctl enable \-\-now nabd\-snapshot.timer
+Take a snapshot every day; later,
+.B sudo nabd diff \-\-since 7d
+shows what changed in a week.
+.TP
+.B nabd \-\-prometheus \-o /var/lib/prometheus/node\-exporter/nabd.prom
+Metrics for node_exporter.
+.TP
+.B nabd \-\-nagios \-\-skip cpu
+A Nagios plugin without the CPU check.
+.SH SECURITY
+.B nabd
+runs only commands that read:
+.BR "systemctl show" ,
+.BR "systemctl list\-units" ,
+.BR journalctl ,
+.BR dmesg ,
+.BR "timedatectl show" ,
+.BR "chronyc tracking" ,
+.BR "sshd \-T" ,
+.BR last ,
+the package database tools
+.RB ( dpkg\-query ,
+.BR rpm ,
+.BR pacman ,
+.BR apk ),
+the firewall tools in list mode
+.RB ( "nft list ruleset" ,
+.BR "iptables \-S" ),
+and the config tests of services
+.RB ( "nginx \-t" ,
+.BR "apachectl \-t" ,
+.BR "sshd \-t" ,
+.BR "haproxy \-c" ,
+and others).
+Every command runs with
+.BR LC_ALL=C ,
+a time limit and a limit on its output.
+.PP
+The output can contain host details such as user names, ports and paths.
+Read it before you share it.
+.SH SEE ALSO
+.BR df (1),
+.BR du (1),
+.BR free (1),
+.BR systemctl (1),
+.BR journalctl (1),
+.BR ss (8)
+.PP
+https://github.com/s0sta/nabd
+.SH BUGS
+Report false alarms and missed problems at https://github.com/s0sta/nabd/issues
+with the output of
+.BR "nabd \-\-json" .
+.SH AUTHOR
+Hosam Hani (s0sta) and contributors.

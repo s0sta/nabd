@@ -1,0 +1,136 @@
+# Release builds: static binaries, .deb/.rpm/.apk/Arch packages and checksums.
+# Run by .github/workflows/release.yml when a tag v* is pushed.
+version: 2
+
+project_name: nabd
+
+before:
+  hooks:
+    - go vet ./...
+    - go test ./...
+
+builds:
+  - id: nabd
+    main: ./cmd/nabd
+    binary: nabd
+    env:
+      - CGO_ENABLED=0
+    goos: [linux]
+    goarch: [amd64, arm64, arm, "386", ppc64le, s390x, riscv64]
+    goarm: ["7"]
+    flags: [-trimpath]
+    ldflags:
+      - -s -w -X main.version={{ .Version }}
+    mod_timestamp: "{{ .CommitTimestamp }}"
+
+archives:
+  - id: tarballs
+    formats: [tar.gz]
+    # no version in the name, so .../releases/latest/download/nabd_linux_amd64.tar.gz always works
+    name_template: "{{ .ProjectName }}_linux_{{ .Arch }}{{ with .Arm }}v{{ . }}{{ end }}"
+    files:
+      - LICENSE
+      - README.md
+      - CHANGELOG.md
+      - docs/nabd.1
+      - docs/checks.md
+      - docs/output.md
+      - completions/*
+      - contrib/**/*
+
+checksum:
+  name_template: SHA256SUMS
+  algorithm: sha256
+
+nfpms:
+  - id: packages
+    package_name: nabd
+    file_name_template: "{{ .PackageName }}_{{ .Arch }}{{ with .Arm }}v{{ . }}{{ end }}"
+    vendor: s0sta
+    homepage: https://github.com/s0sta/nabd
+    maintainer: Hosam Hani <76218642+s0sta@users.noreply.github.com>
+    description: |-
+      Doctor for Linux servers: finds problems and gives the fix.
+      nabd checks disks, memory, CPU, services, the kernel log, time, reboots,
+      packages, network, open ports, SSH, certificates, processes and accounts,
+      explains each problem in plain words and prints the command that fixes it.
+      It only reads: it never changes the system.
+    license: MIT
+    section: admin
+    priority: optional
+    formats: [deb, rpm, apk, archlinux]
+    bindir: /usr/bin
+    contents:
+      - src: docs/nabd.1
+        dst: /usr/share/man/man1/nabd.1
+      - src: completions/nabd.bash
+        dst: /usr/share/bash-completion/completions/nabd
+      - src: completions/_nabd
+        dst: /usr/share/zsh/vendor-completions/_nabd
+        packager: deb
+      - src: completions/_nabd
+        dst: /usr/share/zsh/site-functions/_nabd
+        packager: rpm
+      - src: completions/_nabd
+        dst: /usr/share/zsh/site-functions/_nabd
+        packager: apk
+      - src: completions/_nabd
+        dst: /usr/share/zsh/site-functions/_nabd
+        packager: archlinux
+      - src: completions/nabd.fish
+        dst: /usr/share/fish/vendor_completions.d/nabd.fish
+      - src: contrib/systemd/nabd-snapshot.service
+        dst: /usr/lib/systemd/system/nabd-snapshot.service
+      - src: contrib/systemd/nabd-snapshot.timer
+        dst: /usr/lib/systemd/system/nabd-snapshot.timer
+      - src: contrib/systemd/nabd-prometheus.service
+        dst: /usr/lib/systemd/system/nabd-prometheus.service
+      - src: contrib/systemd/nabd-prometheus.timer
+        dst: /usr/lib/systemd/system/nabd-prometheus.timer
+      - src: contrib/nagios/nabd.cfg
+        dst: /usr/share/doc/nabd/examples/nabd.cfg
+      - src: README.md
+        dst: /usr/share/doc/nabd/README.md
+      - src: LICENSE
+        dst: /usr/share/doc/nabd/copyright
+        packager: deb
+      - src: LICENSE
+        dst: /usr/share/licenses/nabd/LICENSE
+        packager: rpm
+      - src: LICENSE
+        dst: /usr/share/licenses/nabd/LICENSE
+        packager: archlinux
+    rpm:
+      group: Applications/System
+      summary: Doctor for Linux servers - finds problems and gives the fix
+    deb:
+      lintian_overrides:
+        - statically-linked-binary
+
+release:
+  github:
+    owner: s0sta
+    name: nabd
+  name_template: "nabd {{ .Version }}"
+  footer: |
+    ## Install
+
+    ```sh
+    # Debian, Ubuntu
+    curl -fLO https://github.com/s0sta/nabd/releases/download/{{ .Tag }}/nabd_amd64.deb && sudo apt install ./nabd_amd64.deb
+    # Fedora, RHEL, Rocky, Alma, openSUSE
+    sudo rpm -Uvh https://github.com/s0sta/nabd/releases/download/{{ .Tag }}/nabd_amd64.rpm
+    # any Linux
+    curl -fL https://github.com/s0sta/nabd/releases/download/{{ .Tag }}/nabd_linux_amd64.tar.gz | tar -xz nabd && sudo install -m 755 nabd /usr/local/bin/
+    ```
+
+    Verify: `sha256sum --check --ignore-missing SHA256SUMS` and `gh attestation verify FILE --repo s0sta/nabd`.
+
+changelog:
+  use: github
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^ci:"

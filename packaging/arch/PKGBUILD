@@ -1,0 +1,36 @@
+# Maintainer: Hosam Hani <76218642+s0sta@users.noreply.github.com>
+pkgname=nabd
+pkgver=0.1.0
+pkgrel=1
+pkgdesc='Doctor for Linux servers: finds problems, explains them and gives the fix'
+arch=('x86_64' 'aarch64' 'armv7h' 'i686' 'riscv64')
+url='https://github.com/s0sta/nabd'
+license=('MIT')
+makedepends=('go')
+source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
+# run `updpkgsums` after a release to fill this in
+sha256sums=('SKIP')
+
+build() {
+  cd "$pkgname-$pkgver"
+  export CGO_CPPFLAGS="$CPPFLAGS" CGO_CFLAGS="$CFLAGS" CGO_CXXFLAGS="$CXXFLAGS" CGO_LDFLAGS="$LDFLAGS"
+  export GOFLAGS="-buildmode=pie -trimpath -mod=readonly -modcacherw"
+  go build -ldflags "-linkmode=external -X main.version=$pkgver" -o nabd ./cmd/nabd
+}
+
+check() {
+  cd "$pkgname-$pkgver"
+  go test ./...
+}
+
+package() {
+  cd "$pkgname-$pkgver"
+  install -Dm755 nabd "$pkgdir/usr/bin/nabd"
+  install -Dm644 docs/nabd.1 "$pkgdir/usr/share/man/man1/nabd.1"
+  install -Dm644 completions/nabd.bash "$pkgdir/usr/share/bash-completion/completions/nabd"
+  install -Dm644 completions/_nabd "$pkgdir/usr/share/zsh/site-functions/_nabd"
+  install -Dm644 completions/nabd.fish "$pkgdir/usr/share/fish/vendor_completions.d/nabd.fish"
+  install -Dm644 -t "$pkgdir/usr/lib/systemd/system" contrib/systemd/*.service contrib/systemd/*.timer
+  install -Dm644 -t "$pkgdir/usr/share/doc/$pkgname" README.md CHANGELOG.md docs/checks.md docs/output.md
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}

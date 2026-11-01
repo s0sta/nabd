@@ -1,0 +1,26 @@
+name: False alarm
+description: nabd reports a problem that is not one
+labels: [false-alarm]
+body:
+  - type: input
+    attributes:
+      label: Finding ID
+      description: For example disk.full or ports.exposed-6379 (see nabd --json)
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Why it is not a problem
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: The finding in nabd --json
+      description: Remove host names, users or anything private.
+      render: json
+  - type: input
+    attributes:
+      label: Distribution and nabd version
+      placeholder: Debian 12, nabd 0.1.0
+    validations:
+      required: true

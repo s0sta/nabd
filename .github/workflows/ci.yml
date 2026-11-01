@@ -1,0 +1,113 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: test (Go ${{ matrix.go }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # 1.19 is the oldest supported Go (Debian 12); stable is the newest
+        go: ["1.19", "stable"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go }}
+      - name: gofmt
+        if: matrix.go == 'stable'
+        run: test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }
+      - run: go vet ./...
+      - run: go test -race ./...
+      - name: build every architecture
+        run: |
+          for arch in amd64 arm64 arm 386 ppc64le s390x riscv64 mips64le loong64; do
+            echo "== $arch"; CGO_ENABLED=0 GOOS=linux GOARCH=$arch go build -o /dev/null ./cmd/nabd
+          done
+      - name: build the release binary
+        if: matrix.go == 'stable'
+        run: CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o nabd ./cmd/nabd
+      - name: run on the runner
+        if: matrix.go == 'stable'
+        run: |
+          ./nabd -v || true
+          sudo ./nabd --json > report.json || test $? -le 3
+          grep -q '"schema": "nabd/1"' report.json
+          if grep -q '\.error"' report.json; then echo "a check failed (a bug)"; exit 1; fi
+          ./nabd why disk / || true
+          ./nabd why slow || true
+          ./nabd changes --since 2h || true
+      - uses: actions/upload-artifact@v4
+        if: matrix.go == 'stable'
+        with:
+          name: nabd
+          path: nabd
+
+  distros:
+    name: run on ${{ matrix.image }}
+    needs: test
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        image:
+          - debian:12
+          - ubuntu:22.04
+          - ubuntu:24.04
+          - fedora:latest
+          - rockylinux:9
+          - almalinux:8
+          - archlinux:latest
+          - alpine:latest
+          - opensuse/leap:15.6
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: nabd
+      - name: nabd in ${{ matrix.image }}
+        run: |
+          chmod +x nabd
+          docker run --rm -v "$PWD:/w:ro" "${{ matrix.image }}" sh -c '
+            set -u
+            cd /tmp
+            /w/nabd version
+            /w/nabd -v; echo "exit $?"
+            /w/nabd --json > report.json; code=$?
+            [ "$code" -le 3 ] || exit 1
+            grep -q "\"schema\": \"nabd/1\"" report.json || exit 1
+            if grep -q "\.error\"" report.json; then echo "a check failed"; exit 1; fi
+            /w/nabd why disk; /w/nabd why memory; /w/nabd changes --since 1w
+            NABD_STATE_DIR=/tmp/state /w/nabd snapshot || exit 1
+            NABD_STATE_DIR=/tmp/state /w/nabd diff; [ $? -le 2 ] || exit 1
+            echo OK'
+
+  packages:
+    name: build and install the packages
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+      - uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: "~> v2"
+          args: release --snapshot --clean --skip=publish
+      - name: install the packages
+        run: |
+          ls -la dist
+          docker run --rm -v "$PWD/dist:/d:ro" debian:12 sh -c 'apt-get update -qq && apt-get install -y -qq /d/nabd_amd64.deb >/dev/null && nabd version && test -f /usr/lib/systemd/system/nabd-snapshot.timer'
+          docker run --rm -v "$PWD/dist:/d:ro" fedora:latest sh -c 'dnf install -y -q /d/nabd_amd64.rpm && nabd version && test -f /usr/lib/systemd/system/nabd-snapshot.timer'
+          docker run --rm -v "$PWD/dist:/d:ro" alpine:latest sh -c 'apk add --allow-untrusted -q /d/nabd_amd64.apk && nabd version'
+          docker run --rm -v "$PWD/dist:/d:ro" archlinux:latest sh -c 'pacman -U --noconfirm /d/nabd_amd64.pkg.tar.zst >/dev/null && nabd version'

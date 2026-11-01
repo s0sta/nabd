@@ -1,0 +1,83 @@
+#compdef nabd
+
+# zsh completion for nabd
+
+_nabd_checks() {
+  _values -s , 'check' disk memory cpu services kernel time reboot packages network ports ssh certs procs accounts
+}
+
+_nabd_services() {
+  local -a units
+  units=(${${(f)"$(systemctl list-units --type=service --all --no-legend --plain --no-pager 2>/dev/null)"}%%.service *})
+  _describe 'service' units
+}
+
+_nabd() {
+  local -a options
+  options=(
+    '--json[JSON output]'
+    '(--markdown)--md[Markdown output]'
+    '--nagios[Nagios plugin output]'
+    '--prometheus[Prometheus metrics]'
+    '(-o --output)'{-o,--output}'[write to a file]:file:_files'
+    '(-v --verbose)'{-v,--verbose}'[show the checks that are OK]'
+    '(-q --quiet)'{-q,--quiet}'[only problems]'
+    '--color[when to use colours]:when:(auto always never)'
+    '--no-color[no colours]'
+    '--ascii[plain ASCII symbols]'
+    '--only[run only these checks]:checks:_nabd_checks'
+    '--skip[skip these checks]:checks:_nabd_checks'
+    '--timeout[time limit per check]:duration (e.g. 30s)'
+    '--since[since when]:when:(1h 24h 3d 1w today yesterday boot)'
+    '--keep[keep the newest N snapshots]:number'
+    '--list[list the snapshots]'
+    '--dir[snapshot folder]:folder:_files -/'
+    '(-h --help)'{-h,--help}'[help]'
+    '--version[print the version]'
+  )
+  _arguments -C $options \
+    '1: :->command' \
+    '*:: :->args'
+
+  case $state in
+    command)
+      local -a commands
+      commands=(
+        'check:check the machine (the default)'
+        'why:explain one problem in depth'
+        'changes:what changed: packages, /etc, SSH keys, cron, logins, services'
+        'snapshot:save the security state'
+        'diff:compare two snapshots, or the last one with now'
+        'checks:list the checks'
+        'version:print the version'
+        'help:show help'
+      )
+      _describe 'command' commands ;;
+    args)
+      case $words[1] in
+        why)
+          if (( CURRENT == 2 )); then
+            local -a topics
+            topics=(
+              'disk:what fills a file system'
+              'slow:what slows the machine now'
+              'memory:who uses the memory'
+              'service:why a service stopped'
+              'port:who listens on a port'
+              'dns:why names do not resolve'
+              'boot:how the last boot went'
+            )
+            _describe 'topic' topics
+          elif (( CURRENT == 3 )); then
+            case $words[2] in
+              disk) _files -/ ;;
+              service) _nabd_services ;;
+            esac
+          fi ;;
+        diff) _values 'snapshot' last prev first now ;;
+        help) _values 'command' check why changes snapshot diff checks version ;;
+      esac ;;
+  esac
+}
+
+_nabd "$@"
