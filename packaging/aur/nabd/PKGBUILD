@@ -6,14 +6,17 @@ pkgdesc='Doctor for Linux servers: finds problems, explains them and gives the f
 arch=('x86_64' 'aarch64' 'armv7h' 'i686' 'riscv64')
 url='https://github.com/s0sta/nabd'
 license=('MIT')
+depends=('glibc')
 makedepends=('go')
 source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
-# run `updpkgsums` after a release to fill this in
-sha256sums=('SKIP')
+sha256sums=('34d7bbcd997a12c335cbb761ec9d6b6871e7ac538383eef7ae5d814cd4241875')
 
 build() {
   cd "$pkgname-$pkgver"
-  export CGO_CPPFLAGS="$CPPFLAGS" CGO_CFLAGS="$CFLAGS" CGO_CXXFLAGS="$CXXFLAGS" CGO_LDFLAGS="$LDFLAGS"
+  export CGO_CPPFLAGS="$CPPFLAGS"
+  export CGO_CFLAGS="$CFLAGS"
+  export CGO_CXXFLAGS="$CXXFLAGS"
+  export CGO_LDFLAGS="$LDFLAGS"
   export GOFLAGS="-buildmode=pie -trimpath -mod=readonly -modcacherw"
   go build -ldflags "-linkmode=external -X main.version=$pkgver" -o nabd ./cmd/nabd
 }
@@ -32,5 +35,6 @@ package() {
   install -Dm644 completions/nabd.fish "$pkgdir/usr/share/fish/vendor_completions.d/nabd.fish"
   install -Dm644 -t "$pkgdir/usr/lib/systemd/system" contrib/systemd/*.service contrib/systemd/*.timer
   install -Dm644 -t "$pkgdir/usr/share/doc/$pkgname" README.md CHANGELOG.md docs/checks.md docs/output.md
+  install -Dm644 contrib/nagios/nabd.cfg "$pkgdir/usr/share/doc/$pkgname/examples/nabd.cfg"
   install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
 }

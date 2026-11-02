@@ -1,0 +1,33 @@
+# Maintainer: Hosam Hani <76218642+s0sta@users.noreply.github.com>
+pkgname=nabd-bin
+_pkgname=nabd
+pkgver=0.1.0
+pkgrel=1
+pkgdesc='Doctor for Linux servers: finds problems, explains them and gives the fix (release binary)'
+arch=('x86_64' 'aarch64' 'armv7h' 'i686')
+url='https://github.com/s0sta/nabd'
+license=('MIT')
+provides=("$_pkgname=$pkgver")
+conflicts=("$_pkgname")
+options=('!strip' '!debug')
+_base="$url/releases/download/v$pkgver"
+source_x86_64=("$_pkgname-$pkgver-x86_64.tar.gz::$_base/nabd_linux_amd64.tar.gz")
+source_aarch64=("$_pkgname-$pkgver-aarch64.tar.gz::$_base/nabd_linux_arm64.tar.gz")
+source_armv7h=("$_pkgname-$pkgver-armv7h.tar.gz::$_base/nabd_linux_armv7.tar.gz")
+source_i686=("$_pkgname-$pkgver-i686.tar.gz::$_base/nabd_linux_386.tar.gz")
+sha256sums_x86_64=('79379b8672cfea2f71a33d8eb068150c7f5512c1357d4b5486cfca44efe2e24e')
+sha256sums_aarch64=('5f2e38611543204f035726536d9853a98f536d8e3d68f4fe08df0ac3a51f99fb')
+sha256sums_armv7h=('56c821da969ea802ad86911362b9f460f2f6a206b23b3e84ee51d37153b1e0c9')
+sha256sums_i686=('d40dca5cb7e89beb8d0eac8001b8e005c9196a66537beea59c646a54d52e0bd5')
+
+package() {
+  install -Dm755 nabd "$pkgdir/usr/bin/nabd"
+  install -Dm644 docs/nabd.1 "$pkgdir/usr/share/man/man1/nabd.1"
+  install -Dm644 completions/nabd.bash "$pkgdir/usr/share/bash-completion/completions/nabd"
+  install -Dm644 completions/_nabd "$pkgdir/usr/share/zsh/site-functions/_nabd"
+  install -Dm644 completions/nabd.fish "$pkgdir/usr/share/fish/vendor_completions.d/nabd.fish"
+  install -Dm644 -t "$pkgdir/usr/lib/systemd/system" contrib/systemd/*.service contrib/systemd/*.timer
+  install -Dm644 -t "$pkgdir/usr/share/doc/$_pkgname" README.md CHANGELOG.md docs/checks.md docs/output.md
+  install -Dm644 contrib/nagios/nabd.cfg "$pkgdir/usr/share/doc/$_pkgname/examples/nabd.cfg"
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}

@@ -1,5 +1,10 @@
 # nabd
 
+[![ci](https://github.com/s0sta/nabd/actions/workflows/ci.yml/badge.svg)](https://github.com/s0sta/nabd/actions/workflows/ci.yml)
+[![packaging](https://github.com/s0sta/nabd/actions/workflows/packaging.yml/badge.svg)](https://github.com/s0sta/nabd/actions/workflows/packaging.yml)
+[![release](https://img.shields.io/github/v/release/s0sta/nabd)](https://github.com/s0sta/nabd/releases/latest)
+[![license](https://img.shields.io/github/license/s0sta/nabd)](LICENSE)
+
 **A doctor for Linux servers.** One command checks the whole machine, tells you in plain words what is wrong and why, and prints the command that fixes it.
 
 <p align="center">

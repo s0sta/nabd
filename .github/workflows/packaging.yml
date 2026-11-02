@@ -1,0 +1,116 @@
+name: packaging
+
+# Builds the native packages from packaging/ in each distribution, the way the
+# distributions build them, then installs and runs nabd.
+on:
+  push:
+    branches: [main]
+    paths: ["packaging/**", ".copr/**", ".github/workflows/packaging.yml"]
+  pull_request:
+    paths: ["packaging/**", ".copr/**", ".github/workflows/packaging.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  debian:
+    name: Debian package (${{ matrix.image }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        image: ["debian:12", "debian:testing", "ubuntu:24.04"]
+    steps:
+      - uses: actions/checkout@v4
+      - name: dpkg-buildpackage, lintian, install
+        run: |
+          docker run --rm -v "$PWD:/src:ro" "${{ matrix.image }}" bash -ec '
+            export DEBIAN_FRONTEND=noninteractive
+            apt-get update -qq
+            apt-get install -y -qq --no-install-recommends build-essential debhelper dh-golang golang-any \
+              bash-completion lintian git ca-certificates >/dev/null
+            cp -r /src /build && cd /build && rm -rf debian && cp -r packaging/debian debian
+            dpkg-buildpackage -us -uc -b
+            lintian --info --display-info ../nabd_*.deb || true
+            lintian --fail-on error ../nabd_*.deb
+            apt-get install -y -qq ../nabd_*.deb >/dev/null
+            nabd version
+            test -f /usr/share/bash-completion/completions/nabd
+            test -f /usr/lib/systemd/system/nabd-snapshot.timer
+            nabd --skip cpu; test $? -le 3'
+
+  rpm:
+    name: RPM package (${{ matrix.image }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        image: ["fedora:latest", "fedora:rawhide", "rockylinux:9"]
+    steps:
+      - uses: actions/checkout@v4
+      - name: SRPM like Copr, rpmbuild, rpmlint, install
+        run: |
+          docker run --rm -v "$PWD:/src:ro" "${{ matrix.image }}" bash -ec '
+            if grep -q "^ID=\"rocky\"" /etc/os-release; then
+              dnf -y -q install epel-release dnf-plugins-core && dnf config-manager --set-enabled crb
+            fi
+            dnf -y -q install make git golang go-rpm-macros systemd-rpm-macros rpm-build rpmdevtools rpmlint
+            cp -r /src /build && cd /build
+            make -f .copr/Makefile srpm outdir=/tmp/srpm
+            rpmbuild --rebuild /tmp/srpm/nabd-*.src.rpm
+            rpmlint /tmp/srpm/*.src.rpm ~/rpmbuild/RPMS/*/nabd-*.rpm || true
+            dnf -y -q install ~/rpmbuild/RPMS/*/nabd-[0-9]*.rpm
+            nabd version
+            test -f /usr/lib/systemd/system/nabd-snapshot.timer
+            nabd --skip cpu; test $? -le 3'
+
+  arch:
+    name: Arch packages (AUR)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: makepkg nabd and nabd-bin, check .SRCINFO, install
+        run: |
+          docker run --rm -v "$PWD:/src:ro" archlinux:latest bash -ec '
+            pacman -Syu --noconfirm --needed base-devel git go namcap >/dev/null
+            useradd -m builder && echo "builder ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/builder
+            cp -r /src/packaging/aur /home/builder/aur && chown -R builder /home/builder/aur
+            echo "== is the name free in the AUR?"
+            curl -s "https://aur.archlinux.org/rpc/v5/info?arg[]=nabd&arg[]=nabd-bin" | head -c 400; echo
+            for p in nabd nabd-bin; do
+              su builder -c "cd ~/aur/$p && makepkg --printsrcinfo | diff -u .SRCINFO - && makepkg -s --noconfirm"
+              namcap /home/builder/aur/$p/PKGBUILD /home/builder/aur/$p/*.pkg.tar.zst || true
+            done
+            pacman -U --noconfirm /home/builder/aur/nabd/nabd-0*.pkg.tar.zst >/dev/null
+            nabd version
+            nabd --skip cpu; test $? -le 3'
+
+  alpine:
+    name: Alpine package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: abuild, install
+        run: |
+          docker run --rm -v "$PWD:/src:ro" alpine:latest sh -ec '
+            apk add -q alpine-sdk sudo
+            adduser -D builder && addgroup builder abuild
+            echo "builder ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/builder
+            mkdir -p /home/builder/nabd && cp /src/packaging/alpine/APKBUILD /home/builder/nabd/
+            chown -R builder /home/builder
+            su builder -c "cd ~/nabd && abuild-keygen -a -i -n >/dev/null 2>&1 && abuild verify && abuild -r"
+            apk add -q --allow-untrusted /home/builder/packages/builder/*/nabd-0*.apk
+            nabd version
+            nabd --skip cpu; test $? -le 3'
+
+  names:
+    name: Is the name "nabd" free?
+    runs-on: ubuntu-latest
+    steps:
+      - name: Debian, Ubuntu, Fedora, Alpine
+        run: |
+          docker run --rm debian:testing sh -c 'apt-get update -qq; apt-cache policy nabd | head -3; echo "debian: done"'
+          docker run --rm ubuntu:24.04 sh -c 'apt-get update -qq; apt-cache policy nabd | head -3; echo "ubuntu: done"'
+          docker run --rm fedora:rawhide sh -c 'dnf -q info nabd 2>&1 | head -3; echo "fedora: done"'
+          docker run --rm alpine:edge sh -c 'apk update -q; apk search -e nabd; echo "alpine: done"'

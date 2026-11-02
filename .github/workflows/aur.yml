@@ -1,0 +1,70 @@
+name: aur
+
+# Publishes nabd and nabd-bin to the Arch User Repository after a release.
+# Needs the secret AUR_SSH_PRIVATE_KEY (the private key of an SSH key that is added to the
+# AUR account). Without it the job only says what is missing.
+on:
+  workflow_run:
+    workflows: [release]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to publish (empty: the latest release)"
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  aur:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    env:
+      AUR_KEY: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Without a key there is nothing to do
+        if: env.AUR_KEY == ''
+        run: echo "::notice::Add the secret AUR_SSH_PRIVATE_KEY to publish to the AUR (see PACKAGING.md)."
+      - name: Version
+        if: env.AUR_KEY != ''
+        id: v
+        run: |
+          v="${{ github.event.inputs.version }}"
+          [ -n "$v" ] || v=$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq .tagName)
+          echo "version=${v#v}" >> "$GITHUB_OUTPUT"
+      - name: Update and push nabd and nabd-bin
+        if: env.AUR_KEY != ''
+        env:
+          VERSION: ${{ steps.v.outputs.version }}
+        run: |
+          printf '%s\n' "$AUR_KEY" > aur_key && chmod 600 aur_key
+          docker run --rm -e VERSION -v "$PWD:/src" archlinux:latest bash -ec '
+            pacman -Syu --noconfirm --needed base-devel git openssh pacman-contrib >/dev/null
+            useradd -m builder
+            install -d -m 700 -o builder /home/builder/.ssh
+            install -m 600 -o builder /src/aur_key /home/builder/.ssh/aur
+            # pin the AUR host key (fingerprint from aur.archlinux.org)
+            ssh-keyscan -t ed25519 aur.archlinux.org 2>/dev/null > /tmp/known
+            ssh-keygen -lf /tmp/known | grep -q "SHA256:RFzBCUItH9LZS0cKB5UE6ceAYhBD5C8GeOBip8Z11+4" \
+              || { echo "AUR host key does not match"; exit 1; }
+            install -m 644 -o builder /tmp/known /home/builder/.ssh/known_hosts
+            printf "Host aur.archlinux.org\n  IdentityFile ~/.ssh/aur\n  User aur\n" > /home/builder/.ssh/config
+            chown builder /home/builder/.ssh/config
+            for p in nabd nabd-bin; do
+              su builder -c "
+                set -e
+                cd ~ && git clone -q ssh://aur@aur.archlinux.org/$p.git && cd $p
+                cp /src/packaging/aur/$p/PKGBUILD .
+                sed -i \"s/^pkgver=.*/pkgver=$VERSION/; s/^pkgrel=.*/pkgrel=1/\" PKGBUILD
+                updpkgsums
+                makepkg --printsrcinfo > .SRCINFO
+                git -c user.name=s0sta -c user.email=76218642+s0sta@users.noreply.github.com add PKGBUILD .SRCINFO
+                if git diff --cached --quiet; then echo \"$p: already up to date\"; exit 0; fi
+                git -c user.name=s0sta -c user.email=76218642+s0sta@users.noreply.github.com commit -q -m \"Update to $VERSION\"
+                git push -q origin HEAD:master
+                echo \"$p: published $VERSION\""
+            done'
+          rm -f aur_key

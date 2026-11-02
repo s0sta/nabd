@@ -3,6 +3,7 @@ Section: admin
 Priority: optional
 Maintainer: Hosam Hani <76218642+s0sta@users.noreply.github.com>
 Build-Depends: debhelper-compat (= 13),
+               dh-sequence-bash-completion,
                dh-sequence-golang,
                golang-any (>= 2:1.19~)
 Standards-Version: 4.7.0

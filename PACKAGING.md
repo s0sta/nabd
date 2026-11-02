@@ -42,10 +42,31 @@ when needed.
 | Folder | For | Notes |
 |---|---|---|
 | [packaging/debian](packaging/debian) | Debian, Ubuntu | dh-golang; copy it to `debian/` in the source tree. A Debian maintainer will put their own name in `Maintainer`. |
-| [packaging/rpm](packaging/rpm) | Fedora, EPEL, Copr | follows the Fedora Go packaging guidelines (`%gometa`, `%gobuild`, `%gocheck`) |
-| [packaging/arch](packaging/arch) | Arch Linux (AUR) | run `updpkgsums` after a release |
-| [packaging/alpine](packaging/alpine) | Alpine (aports) | run `abuild checksum` after a release |
+| [packaging/rpm](packaging/rpm) | Fedora, EPEL, Copr | follows the Fedora Go packaging guidelines (`%gometa`, `%gobuild`, `%gocheck`); [.copr/Makefile](.copr/Makefile) makes the source RPM for Copr |
+| [packaging/aur](packaging/aur) | Arch Linux (AUR): `nabd` (from source) and `nabd-bin` (release binary) | with `.SRCINFO`; the `aur` workflow publishes both after every release |
+| [packaging/alpine](packaging/alpine) | Alpine (aports) | run `abuild checksum` for a new version |
 | [.goreleaser.yaml](.goreleaser.yaml) | GitHub releases | .deb, .rpm, .apk and Arch packages and static tarballs for 7 architectures |
+
+Every change in `packaging/` is tested by the [packaging workflow](.github/workflows/packaging.yml): it builds each
+package in its own distribution the way the distribution does (dpkg-buildpackage + lintian on Debian 12, Debian
+testing and Ubuntu 24.04; the Copr source RPM + rpmbuild + rpmlint on Fedora, Fedora rawhide and Rocky 9 with
+EPEL; makepkg + namcap on Arch; abuild on Alpine), installs it and runs nabd.
+
+## Publishing to the AUR
+
+1. Make an account on <https://aur.archlinux.org/register> and add the public part of an SSH key to it
+   (`ssh-keygen -t ed25519 -f aur_nabd -N ""` makes `aur_nabd` and `aur_nabd.pub`).
+2. In the GitHub repository: Settings → Secrets and variables → Actions → New repository secret:
+   name `AUR_SSH_PRIVATE_KEY`, value: the content of `aur_nabd` (the private part).
+3. Actions → **aur** → Run workflow. After that it runs by itself after every release.
+
+## Publishing to Fedora Copr
+
+1. Log in on <https://copr.fedorainfracloud.org> with a Fedora account.
+2. New project `nabd`; chroots: the Fedora releases, `fedora-rawhide`, `epel-9`, `epel-10`.
+3. Packages → New package → SCM: clone URL `https://github.com/s0sta/nabd`, spec file
+   `packaging/rpm/nabd.spec`, build SRPM with **make srpm**. Build.
+4. Users then install with `sudo dnf copr enable s0sta/nabd && sudo dnf install nabd`.
 
 ## The road into distributions
 
