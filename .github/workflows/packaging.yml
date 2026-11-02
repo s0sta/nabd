@@ -104,6 +104,22 @@ jobs:
             nabd version
             nabd --skip cpu; test $? -le 3'
 
+  go-install:
+    name: go install from the Go module proxy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+          cache: false
+      - name: go install github.com/s0sta/nabd/cmd/nabd@latest (as in the README)
+        run: |
+          go install github.com/s0sta/nabd/cmd/nabd@latest
+          "$(go env GOPATH)/bin/nabd" version
+          curl -fsS "https://proxy.golang.org/github.com/s0sta/nabd/@v/list"
+          # ask pkg.go.dev to show the documentation
+          curl -fsS -o /dev/null -X POST "https://pkg.go.dev/fetch/github.com/s0sta/nabd@v0.1.0" || true
+
   names:
     name: Is the name "nabd" free?
     runs-on: ubuntu-latest
