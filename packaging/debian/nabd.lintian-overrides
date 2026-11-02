@@ -1,0 +1,3 @@
+# nabd only checks whether /var/lib/dpkg/updates has files, to report an
+# interrupted dpkg run (apt makes the same check). It never writes there.
+nabd: uses-dpkg-database-directly [usr/bin/nabd]

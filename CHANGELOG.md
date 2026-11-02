@@ -3,6 +3,13 @@
 All notable changes are listed here. nabd follows [semantic versioning](https://semver.org/):
 the JSON schema (`nabd/1`), the finding IDs and the exit codes only change in a major version.
 
+## Unreleased
+
+- Packaging: AUR packages `nabd` and `nabd-bin` (published by the `aur` workflow), Fedora Copr (`.copr/Makefile`),
+  real checksums for Alpine; a `packaging` workflow builds the Debian, RPM, Arch and Alpine packages in their
+  distributions and checks them with lintian, rpmlint and namcap.
+- A build between releases shows its version as `0.1.0-dev+COMMIT`.
+
 ## 0.1.0 — 2026-11-02
 
 The first release.
