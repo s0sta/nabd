@@ -51,6 +51,7 @@ func TestReadmeExamples(t *testing.T) {
 		{"quiet-ok", healthyMachine, []string{"-q"}, 0, nil},
 		{"why-disk", demoMachine, []string{"why", "disk", "/var"}, -1, []string{"journal"}},
 		{"why-nginx", demoMachine, []string{"why", "nginx"}, -1, []string{"servr"}},
+		{"why-port", demoMachine, []string{"why", "6379"}, 2, []string{"Redis listens on 0.0.0.0:6379"}},
 		{"nagios-ok", healthyMachine, []string{"--nagios"}, 0, []string{"OK"}},
 		{"nagios-problems", demoMachine, []string{"--nagios"}, 2, []string{"CRITICAL"}},
 	} {
@@ -68,5 +69,23 @@ func TestReadmeExamples(t *testing.T) {
 				_ = os.WriteFile(filepath.Join(dir, e.name+".txt"), []byte(out+"\n[exit "+string(rune('0'+code))+"]\n"), 0o644)
 			}
 		})
+	}
+}
+
+// TestWhyPortMatchesPortsCheck: `nabd why port` gives the same verdict as the
+// ports check of `nabd` (it said OK for an open Redis while `nabd` said CRIT).
+func TestWhyPortMatchesPortsCheck(t *testing.T) {
+	code, out, _ := runWith(t, demoMachine(t), "why", "6379", "--color", "never")
+	if code != 2 || !strings.Contains(out, "CRIT  Redis listens on 0.0.0.0:6379: other machines can connect") ||
+		!strings.Contains(out, "bind 127.0.0.1") {
+		t.Errorf("open Redis: exit %d\n%s", code, out)
+	}
+	code, out, _ = runWith(t, healthyMachine(t), "why", "6379", "--color", "never")
+	if code != 0 || !strings.Contains(out, "OK    redis-server") || !strings.Contains(out, "only for this machine") {
+		t.Errorf("Redis on localhost: exit %d\n%s", code, out)
+	}
+	code, out, _ = runWith(t, demoMachine(t), "why", "22", "--color", "never")
+	if code != 0 || !strings.Contains(out, "open to the network") {
+		t.Errorf("SSH is not a risky port: exit %d\n%s", code, out)
 	}
 }

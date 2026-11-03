@@ -213,6 +213,46 @@ func Exposed(l core.Listener) bool {
 	return true
 }
 
+// PortRisk is the finding for a TCP socket that other machines can reach on a
+// port with a known risk (Redis, the Docker API, databases …). The ports check
+// and `nabd why port` both use it, so they give the same verdict.
+func PortRisk(c *core.Ctx, l core.Listener, fw Firewall) (core.Finding, bool) {
+	rp, risky := riskyPorts[l.Port]
+	if !risky || !Exposed(l) || !strings.HasPrefix(l.Proto, "tcp") {
+		return core.Finding{}, false
+	}
+	sev := rp.sev
+	f := core.Finding{ID: "exposed-" + strconv.Itoa(l.Port),
+		Title: fmt.Sprintf("%s listens on %s: other machines can connect", rp.name, l.Addr()),
+		Why:   []string{rp.why},
+		Fix:   []string{"# " + rp.fix},
+		Data:  map[string]interface{}{"port": l.Port, "address": l.Addr(), "pid": l.PID, "process": l.Process}}
+	if l.PID > 0 {
+		f.Why = append(f.Why, "process: "+c.Owner(l.PID))
+	}
+	if fw.Active {
+		f.Why = append(f.Why, "a firewall ("+fw.Name+") is on: check that it blocks port "+strconv.Itoa(l.Port))
+		if sev == core.Crit {
+			sev = core.Warn
+		} else {
+			sev = core.Info
+		}
+	} else {
+		f.Why = append(f.Why, "no active firewall was found")
+		switch {
+		case c.Sys.Has("ufw"):
+			f.Fix = append(f.Fix, c.Sudo()+"ufw deny "+strconv.Itoa(l.Port)+"/tcp")
+		case c.Sys.Has("firewall-cmd"):
+			f.Fix = append(f.Fix, c.Sudo()+"systemctl enable --now firewalld   # the default zone blocks this port")
+		}
+	}
+	if l.Port == 2375 {
+		sev = core.Crit
+	}
+	f.Severity = sev
+	return f, true
+}
+
 func runPorts(c *core.Ctx, o *core.Out) {
 	ls, full := c.Listeners()
 	if !full && !c.Facts.Root {
@@ -233,41 +273,13 @@ func runPorts(c *core.Ctx, o *core.Out) {
 			seen[label] = true
 			open = append(open, label)
 		}
-		rp, risky := riskyPorts[l.Port]
-		if !risky || seen["risk"+strconv.Itoa(l.Port)] {
+		if seen["risk"+strconv.Itoa(l.Port)] {
 			continue
 		}
-		seen["risk"+strconv.Itoa(l.Port)] = true
-		sev := rp.sev
-		f := core.Finding{ID: "exposed-" + strconv.Itoa(l.Port),
-			Title: fmt.Sprintf("%s listens on %s: other machines can connect", rp.name, l.Addr()),
-			Why:   []string{rp.why},
-			Fix:   []string{"# " + rp.fix},
-			Data:  map[string]interface{}{"port": l.Port, "address": l.Addr(), "pid": l.PID, "process": l.Process}}
-		if l.PID > 0 {
-			f.Why = append(f.Why, "process: "+c.Owner(l.PID))
+		if f, risky := PortRisk(c, l, fw); risky {
+			seen["risk"+strconv.Itoa(l.Port)] = true
+			o.Add(f)
 		}
-		if fw.Active {
-			f.Why = append(f.Why, "a firewall ("+fw.Name+") is on: check that it blocks port "+strconv.Itoa(l.Port))
-			if sev == core.Crit {
-				sev = core.Warn
-			} else {
-				sev = core.Info
-			}
-		} else {
-			f.Why = append(f.Why, "no active firewall was found")
-			switch {
-			case c.Sys.Has("ufw"):
-				f.Fix = append(f.Fix, c.Sudo()+"ufw deny "+strconv.Itoa(l.Port)+"/tcp")
-			case c.Sys.Has("firewall-cmd"):
-				f.Fix = append(f.Fix, c.Sudo()+"systemctl enable --now firewalld   # the default zone blocks this port")
-			}
-		}
-		if l.Port == 2375 {
-			sev = core.Crit
-		}
-		f.Severity = sev
-		o.Add(f)
 	}
 	if len(open) == 0 {
 		o.OK("no TCP port is open to the network")
