@@ -5,6 +5,11 @@ the JSON schema (`nabd/1`), the finding IDs and the exit codes only change in a 
 
 ## Unreleased
 
+- README: examples of real output (a healthy server and one with problems, `nabd -q`, `why disk`, `why nginx`,
+  `--nagios`, a script), what each sign and exit code means, and how to tell OK from a problem.
+
+## 0.2.0 — 2026-11-03
+
 - Packaging: AUR packages `nabd` and `nabd-bin` (published by the `aur` workflow), Fedora Copr (`.copr/Makefile`),
   real checksums for Alpine; a `packaging` workflow builds the Debian, RPM, Arch and Alpine packages in their
   distributions and checks them with lintian, rpmlint and namcap.
