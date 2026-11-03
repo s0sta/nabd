@@ -211,22 +211,28 @@ jobs:
       - name: install the packages on other CPUs
         run: |
           fails=0
-          t() {
-            echo "== $1 $2 $3"
-            if ! out=$(docker run --rm --platform "$1" -v "$PWD/dist:/d:ro" "$2" sh -c "$4 /d/$3 && nabd version && { nabd --json >/tmp/r.json; test \$? -le 3; } && grep -q nabd/1 /tmp/r.json" 2>&1); then
+          t() {   # platform "image1 image2 ..." file install-command: the first image that exists for that CPU is used
+            for img in $2; do
+              echo "== $1 $img $3"
+              if out=$(docker run --rm --platform "$1" -v "$PWD/dist:/d:ro" "$img" sh -c "$4 /d/$3 && nabd version && { nabd --json >/tmp/r.json; test \$? -le 3; } && grep -q nabd/1 /tmp/r.json" 2>&1); then
+                echo "::notice::$3 installed and ran on $img ($1)"; return
+              fi
               echo "$out"
-              echo "::error::$3 on $2 ($1): $(echo "$out" | tail -n 4 | tr '\n' ' ')"
-              fails=$((fails + 1))
-            fi
+              case "$out" in *"no matching manifest"*|*"manifest unknown"*|*"pull access denied"*|*"Unable to find image"*"not found"*) continue ;; esac
+              echo "::error::$3 on $img ($1): $(echo "$out" | tail -n 4 | tr '\n' ' ')"
+              fails=$((fails + 1)); return
+            done
+            echo "::warning::no image of [$2] exists for $1; $3 is still tested in QEMU (job cpus)"
           }
-          t linux/arm64    rockylinux:9  nabd_arm64.rpm    "rpm -Uvh"
-          t linux/arm64    debian:12     nabd_arm64.deb    "dpkg -i"
-          t linux/arm/v7   debian:12     nabd_armv7.deb    "dpkg -i"
-          t linux/arm/v5   debian:12     nabd_armv5.deb    "dpkg -i"
-          t linux/arm/v6   alpine:latest nabd_armv6.apk    "apk add -q --allow-untrusted"
-          t linux/386      debian:12     nabd_386.deb      "dpkg -i"
-          t linux/ppc64le  almalinux:9   nabd_ppc64le.rpm  "rpm -Uvh"
-          t linux/s390x    ubuntu:24.04  nabd_s390x.deb    "dpkg -i"
-          t linux/riscv64  ubuntu:24.04  nabd_riscv64.deb  "dpkg -i"
-          t linux/mips64le debian:12     nabd_mips64le.deb "dpkg -i"
+          t linux/arm64    "rockylinux:9"            nabd_arm64.rpm    "rpm -Uvh"
+          t linux/arm64    "debian:12"               nabd_arm64.deb    "dpkg -i"
+          t linux/arm/v7   "debian:12"               nabd_armv7.deb    "dpkg -i"
+          t linux/arm/v5   "debian:13 debian:11"     nabd_armv5.deb    "dpkg -i"
+          t linux/arm/v6   "alpine:latest"           nabd_armv6.apk    "apk add -q --allow-untrusted"
+          t linux/386      "debian:12"               nabd_386.deb      "dpkg -i"
+          t linux/ppc64le  "almalinux:9"             nabd_ppc64le.rpm  "rpm -Uvh"
+          t linux/s390x    "ubuntu:24.04"            nabd_s390x.deb    "dpkg -i"
+          t linux/riscv64  "ubuntu:24.04"            nabd_riscv64.deb  "dpkg -i"
+          t linux/mips64le "debian:11 debian:10"     nabd_mips64le.deb "dpkg -i"
+          t linux/loong64  "ghcr.io/loong64/debian:trixie" nabd_loong64.deb "dpkg -i"
           test "$fails" -eq 0
