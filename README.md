@@ -35,26 +35,20 @@ mips64 and mips64le. One static binary, no libraries: it runs on any distributio
 (RHEL/CentOS 7 and newer, Debian 8+, Ubuntu 14.04+, Alpine, Amazon Linux, openSUSE, Arch, Raspberry Pi OS …).
 
 ```sh
-# Your machine type in the release names (amd64, arm64, armv7, 386, ppc64le, s390x, riscv64, ...)
-A=$(uname -m | sed -e s/x86_64/amd64/ -e s/aarch64/arm64/ -e 's/armv\([5-7]\).*/armv\1/' -e 's/i[3-6]86/386/' -e s/loongarch64/loong64/)
+# Fedora, RHEL, Rocky, Alma, openSUSE
+sudo rpm -Uvh https://github.com/s0sta/nabd/releases/latest/download/nabd_$(uname -m | sed -e s/x86_64/amd64/ -e s/aarch64/arm64/ -e 's/armv\([5-7]\).*/armv\1/' -e 's/i[3-6]86/386/' -e s/loongarch64/loong64/).rpm
 
 # Debian, Ubuntu
-curl -fLO https://github.com/s0sta/nabd/releases/latest/download/nabd_$A.deb
-sudo apt install ./nabd_$A.deb
-
-# Fedora, RHEL, Rocky, Alma, openSUSE
-sudo rpm -Uvh https://github.com/s0sta/nabd/releases/latest/download/nabd_$A.rpm
+curl -fL -o /tmp/nabd.deb https://github.com/s0sta/nabd/releases/latest/download/nabd_$(uname -m | sed -e s/x86_64/amd64/ -e s/aarch64/arm64/ -e 's/armv\([5-7]\).*/armv\1/' -e 's/i[3-6]86/386/' -e s/loongarch64/loong64/).deb && sudo apt install /tmp/nabd.deb
 
 # Alpine
-curl -fLO https://github.com/s0sta/nabd/releases/latest/download/nabd_$A.apk
-sudo apk add --allow-untrusted ./nabd_$A.apk
+curl -fL -o /tmp/nabd.apk https://github.com/s0sta/nabd/releases/latest/download/nabd_$(uname -m | sed -e s/x86_64/amd64/ -e s/aarch64/arm64/ -e 's/armv\([5-7]\).*/armv\1/' -e 's/i[3-6]86/386/' -e s/loongarch64/loong64/).apk && sudo apk add --allow-untrusted /tmp/nabd.apk
 
 # Any Linux: one static binary
-curl -fL https://github.com/s0sta/nabd/releases/latest/download/nabd_linux_$A.tar.gz | tar -xz nabd
-sudo install -m 755 nabd /usr/local/bin/
+curl -fL https://github.com/s0sta/nabd/releases/latest/download/nabd_linux_$(uname -m | sed -e s/x86_64/amd64/ -e s/aarch64/arm64/ -e 's/armv\([5-7]\).*/armv\1/' -e 's/i[3-6]86/386/' -e s/loongarch64/loong64/).tar.gz | tar -xz nabd && sudo install -m 755 nabd /usr/local/bin/
 ```
 
-The first line picks the file for your machine (`x86_64` → `amd64`, `aarch64` → `arm64`, `armv7l` → `armv7`). On MIPS
+Each line picks the file for your machine by itself (`x86_64` → `amd64`, `aarch64` → `arm64`, `armv7l` → `armv7`). On MIPS
 `uname -m` does not show the byte order: use `mips`/`mips64` (big-endian) or `mipsle`/`mips64le` (little-endian). Every file is listed in `SHA256SUMS` and has a signed build provenance:
 
 ```sh

@@ -122,14 +122,12 @@ release:
     ## Install
 
     ```sh
-    # your machine type (amd64, arm64, armv7, 386, ppc64le, s390x, riscv64, ...)
-    A=$(uname -m | sed -e s/x86_64/amd64/ -e s/aarch64/arm64/ -e 's/armv\([5-7]\).*/armv\1/' -e 's/i[3-6]86/386/' -e s/loongarch64/loong64/)
     # Debian, Ubuntu
-    curl -fLO https://github.com/s0sta/nabd/releases/download/{{ .Tag }}/nabd_$A.deb && sudo apt install ./nabd_$A.deb
+    curl -fL -o /tmp/nabd.deb https://github.com/s0sta/nabd/releases/download/{{ .Tag }}/nabd_$(uname -m | sed -e s/x86_64/amd64/ -e s/aarch64/arm64/ -e 's/armv\([5-7]\).*/armv\1/' -e 's/i[3-6]86/386/' -e s/loongarch64/loong64/).deb && sudo apt install /tmp/nabd.deb
     # Fedora, RHEL, Rocky, Alma, openSUSE
-    sudo rpm -Uvh https://github.com/s0sta/nabd/releases/download/{{ .Tag }}/nabd_$A.rpm
+    sudo rpm -Uvh https://github.com/s0sta/nabd/releases/download/{{ .Tag }}/nabd_$(uname -m | sed -e s/x86_64/amd64/ -e s/aarch64/arm64/ -e 's/armv\([5-7]\).*/armv\1/' -e 's/i[3-6]86/386/' -e s/loongarch64/loong64/).rpm
     # any Linux
-    curl -fL https://github.com/s0sta/nabd/releases/download/{{ .Tag }}/nabd_linux_$A.tar.gz | tar -xz nabd && sudo install -m 755 nabd /usr/local/bin/
+    curl -fL https://github.com/s0sta/nabd/releases/download/{{ .Tag }}/nabd_linux_$(uname -m | sed -e s/x86_64/amd64/ -e s/aarch64/arm64/ -e 's/armv\([5-7]\).*/armv\1/' -e 's/i[3-6]86/386/' -e s/loongarch64/loong64/).tar.gz | tar -xz nabd && sudo install -m 755 nabd /usr/local/bin/
     ```
 
     Verify: `sha256sum --check --ignore-missing SHA256SUMS` and `gh attestation verify FILE --repo s0sta/nabd`.
