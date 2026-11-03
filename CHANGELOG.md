@@ -9,6 +9,14 @@ the JSON schema (`nabd/1`), the finding IDs and the exit codes only change in a 
   real checksums for Alpine; a `packaging` workflow builds the Debian, RPM, Arch and Alpine packages in their
   distributions and checks them with lintian, rpmlint and namcap.
 - A build between releases shows its version as `0.1.0-dev+COMMIT`.
+- Every CPU that Go supports on Linux: release files now also for armv5, armv6, ppc64 (big-endian), loong64, mips,
+  mipsle, mips64 and mips64le (soft-float, so they run with or without an FPU); 386 is soft-float too (runs on CPUs
+  without SSE2). The tests run on all 14 builds in QEMU in CI, and the packages are installed and run on arm64,
+  armv5/v6/v7, 386, ppc64le, s390x, riscv64 and loong64 containers.
+- CI runs nabd on 31 distribution versions, old and new: CentOS 7, Rocky/Alma/Oracle 8–10, CentOS Stream 9/10,
+  Amazon Linux 2/2023, Fedora, Debian 10–13, Ubuntu 16.04–24.04, Alpine 3.14–edge, openSUSE Leap/Tumbleweed, Arch,
+  Kali and Gentoo. The packages install with old package tools too (rpm on CentOS 7, dpkg on Ubuntu 16.04).
+- README: the install commands pick the file for your machine type (`uname -m`).
 
 ## 0.1.0 — 2026-11-02
 
