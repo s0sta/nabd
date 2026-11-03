@@ -65,6 +65,8 @@ git clone https://github.com/s0sta/nabd && cd nabd && make && sudo make install
 
 ## Use it
 
+What the output looks like, and how to tell OK from a problem: [Examples](#examples-what-you-will-see).
+
 ### Check everything
 
 ```sh
@@ -134,6 +136,210 @@ A new UID 0 account or a SUID file in `/tmp` or `/home` is critical. A new admin
 | `--only disk,certs`, `--skip cpu` | choose the checks |
 
 Exit codes follow the Nagios plugin rule: `0` OK, `1` warning, `2` critical, `3` unknown. Ready-made systemd units and a Nagios example are in [contrib/](contrib/).
+
+## Examples: what you will see
+
+The outputs below are real nabd output from two test servers: a healthy one and one with five problems
+(`cmd/nabd/examples_test.go` makes them: `NABD_EXAMPLES=DIR go test ./cmd/nabd -run TestReadmeExamples`).
+
+### A healthy server: everything is OK
+
+```console
+$ sudo nabd
+nabd 0.2.0 · web-prod-1 · Ubuntu 24.04.1 LTS · kernel 6.8.0-48-generic · up 41 days
+
+ ✔ 13 checks OK  disk · memory · cpu · services · kernel · time · reboot · packages · network · ports · ssh · procs · accounts
+ ○ skipped: certs  (nabd -v says why)
+
+ healthy: no problems found · 1.0 s
+$ echo $?
+0
+```
+
+**This is good.** You see only `✔`, the last line says `healthy: no problems found`, and the exit code is `0`.
+
+- `○ skipped` is **not** a problem: that check has nothing to look at here (on this server: no TLS certificates).
+  `nabd -v` says why each check was skipped.
+- `○ without root nabd could not read: …` means you ran it without `sudo`. Run `sudo nabd` to check everything.
+
+### A server with problems
+
+```console
+$ sudo nabd
+nabd 0.2.0 · web-prod-1 · Ubuntu 24.04.1 LTS · kernel 6.8.0-45-generic · up 41 days
+
+ ✖ CRIT  disk      /var is 96% full (1.4 GB free of 40.0 GB)
+                  why   10.7 GB in journal logs (/var/log/journal)
+                  fix   journalctl --vacuum-size=500M
+                        # for good: SystemMaxUse=500M in /etc/systemd/journald.conf, then restart systemd-journald
+                        nabd why disk /var   # the biggest folders and files
+ ✖ CRIT  ports     Redis listens on 0.0.0.0:6379: other machines can connect
+                  why   Redis has no password by default; open Redis servers are attacked within
+                        hours
+                        process: redis-server (pid 1187, redis-server.service)
+                        no active firewall was found
+                  fix   # in redis.conf: `bind 127.0.0.1 -::1` and `protected-mode yes`, then restart redis
+ ✖ CRIT  services  nginx.service failed 25 min ago
+                  why   the program stopped with an error (exit code 1); its log lines say which
+                        config test (nginx -t): nginx: [emerg] unknown directive "servr" in
+                        /etc/nginx/sites-enabled/shop:14
+                        file /etc/nginx/sites-enabled/shop changed 2 min before it failed (14:33)
+                  fix   # the error is in /etc/nginx/sites-enabled/shop, line 14
+                        nginx -t   # must say OK before you restart
+                        systemctl restart nginx.service
+                        journalctl -u nginx.service -b -e
+                        nabd why service nginx
+ ▲ WARN  certs     the certificate for shop.example.com expires in 12 days
+                  why   file: /etc/letsencrypt/live/shop.example.com/fullchain.pem (used by nginx)
+                        valid until 2026-11-13 13:00 UTC
+                        certbot renews 30 days before the end, so the automatic renewal is failing
+                  fix   certbot renew --dry-run   # shows why it fails
+                        systemctl list-timers '*certbot*'   # is the renewal timer on?
+ ▲ WARN  reboot    an update needs a reboot
+                  why   updated: linux-image-6.8.0-48-generic
+                  fix   reboot   # at a good time
+
+ ✔ 9 checks OK  memory · cpu · kernel · time · packages · network · ssh · procs · accounts
+
+ 5 problems: 3 critical, 2 warnings · 1.0 s
+ more: nabd why disk|slow|memory|service NAME|port N|dns|boot · nabd changes · nabd --json
+$ echo $?
+2
+```
+
+**This needs work.** Every problem has three parts:
+
+- the title (what is wrong),
+- `why` (the cause nabd found),
+- `fix` (the commands to run; lines starting with `#` explain what to change).
+
+Start with `✖ CRIT`, then do `▲ WARN`. After the fix, run `sudo nabd` again: when the problem is gone, it moves to
+`✔ checks OK`.
+
+### What the signs and exit codes mean
+
+| Sign | Level | Meaning | What to do | Exit code |
+|---|---|---|---|---|
+| `✔` | OK | the check found nothing wrong | nothing | `0` |
+| `○` | skipped | nothing to check here, or no permission | nothing; use `sudo` for a full check | `0` |
+| `●` | INFO | worth knowing, not a problem | read it | `0` |
+| `▲` | WARN | a problem that will grow, or a risk | fix it soon | `1` |
+| `✖` | CRIT | broken now, or open to attack | fix it now | `2` |
+| `?` | UNKN | a check could not finish (time limit or error) | run `nabd -v`; if it repeats, open an issue | `3` |
+
+The exit code is the worst level found. With `--ascii` (or `TERM=dumb`) the signs are `+`, `-`, `i`, `!`, `x` and `?`.
+
+### Only the problems: `nabd -q`
+
+On a healthy server `-q` prints just the short summary:
+
+```console
+$ sudo nabd -q
+nabd 0.2.0 · web-prod-1 · Ubuntu 24.04.1 LTS · kernel 6.8.0-48-generic · up 41 days
+
+ ✔ 13 checks OK  disk · memory · cpu · services · kernel · time · reboot · packages · network · ports · ssh · procs · accounts
+
+ healthy: no problems found · 1.0 s
+```
+
+On a server with problems it prints the problems without the notes.
+
+### Ask why: `nabd why disk /var`
+
+```console
+$ sudo nabd why disk /var
+nabd why disk /var · web-prod-1
+
+ ✖ CRIT  /var is 96% full: 38.3 GB used, 1.4 GB free of 40.0 GB
+
+   File system
+     /var on /dev/vdb1 (ext4), inodes 4% used
+
+   Biggest folders
+     ▸  10.7 GB  67%  /var/log
+         3.0 GB  19%  /var/lib
+         2.3 GB  15%  /var/www
+         ▸  10.7 GB 100%  /var/log/journal
+                10.7 GB 100%  /var/log/journal/4f1c2e
+
+   Biggest files
+       9.6 GB  /var/log/journal/4f1c2e/system.journal
+       3.0 GB  /var/lib/redis/dump.rdb
+       2.3 GB  /var/www/shop/media/archive.tar
+       1.2 GB  /var/log/journal/4f1c2e/system@0006.journal~
+
+   What to do
+     journalctl --vacuum-size=500M
+     # for good: SystemMaxUse=500M in /etc/systemd/journald.conf, then restart systemd-journald
+```
+
+**Problem:** the first line is `✖ CRIT` or `▲ WARN`. The lines below show where the space went; `What to do`
+frees it. **OK:** the first line starts with `✔` (the disk has enough free space).
+
+### Ask why: `nabd why nginx`
+
+```console
+$ sudo nabd why nginx
+nabd why service nginx · web-prod-1
+
+ ✖ CRIT  nginx.service failed 25 min ago: the program stopped with an error (exit code 1); its log lines say which
+
+   Status
+     nginx.service — A high performance web server and a reverse proxy server
+     state: failed
+     at boot: enabled
+     unit file: /usr/lib/systemd/system/nginx.service
+
+   Why
+     config test (nginx -t): nginx: [emerg] unknown directive "servr" in /etc/nginx/sites-enabled/shop:14
+     file /etc/nginx/sites-enabled/shop changed 2 min before it failed (14:33)
+
+   Config test
+     nginx -t: FAILED
+     nginx: [emerg] unknown directive "servr" in /etc/nginx/sites-enabled/shop:14
+     nginx: configuration file /etc/nginx/nginx.conf test failed
+
+   Last log lines
+     nginx: [emerg] unknown directive "servr" in /etc/nginx/sites-enabled/shop:14
+
+   What to do
+     # the error is in /etc/nginx/sites-enabled/shop, line 14
+     nginx -t   # must say OK before you restart
+     systemctl restart nginx.service
+     journalctl -u nginx.service -b -e
+```
+
+**Problem:** `state: failed` and the cause under `Why` (here a typo, `servr`, in line 14, made 2 minutes before
+the crash). **OK:** the first line starts with `✔`: the service runs.
+
+### Monitoring: `nabd --nagios`
+
+One line for Nagios, Icinga or NRPE, plus one line per problem:
+
+```console
+$ sudo nabd --nagios        # healthy: exit 0
+NABD OK - no problems | crit=0;;;0 warn=0;;;0 unknown=0;;;0 checks=14;;;0 time=1.002s;;;0
+
+$ sudo nabd --nagios        # problems: exit 2
+NABD CRITICAL - /var is 96% full (1.4 GB free of 40.0 GB); Redis listens on 0.0.0.0:6379: other machines can connect; nginx.service failed 25 min ago; +2 more | crit=3;;;0 warn=2;;;0 unknown=0;;;0 checks=14;;;0 time=1.002s;;;0
+[CRIT] disk: /var is 96% full (1.4 GB free of 40.0 GB)
+[CRIT] ports: Redis listens on 0.0.0.0:6379: other machines can connect
+[CRIT] services: nginx.service failed 25 min ago
+[WARN] certs: the certificate for shop.example.com expires in 12 days
+[WARN] reboot: an update needs a reboot
+```
+
+### In a script
+
+```sh
+sudo nabd -q > /tmp/nabd.txt
+case $? in
+  0) echo "OK" ;;
+  1) echo "warning: see /tmp/nabd.txt" ;;
+  2) echo "CRITICAL: see /tmp/nabd.txt" ;;
+  *) echo "nabd could not finish a check" ;;
+esac
+```
 
 ## What nabd checks
 
