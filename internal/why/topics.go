@@ -765,6 +765,7 @@ func Port(c *core.Ctx, port int) Answer {
 		a.limit("the process behind other users' sockets")
 	}
 	svc := serviceName(c, port)
+	fw := checks.DetectFirewall(c)
 	var mine []core.Listener
 	for _, l := range ls {
 		if l.Port == port {
@@ -845,6 +846,15 @@ func Port(c *core.Ctx, port int) Answer {
 		} else {
 			a.Verdict += ", only for this machine"
 		}
+		// the same verdict as the ports check of `nabd`
+		for _, l := range mine {
+			if f, risky := checks.PortRisk(c, l, fw); risky {
+				a.Severity, a.Verdict = f.Severity, f.Title
+				a.add("Risk", f.Why...)
+				a.fix(f.Fix...)
+				break
+			}
+		}
 		{
 			d := net.Dialer{Timeout: time.Second}
 			addr := net.JoinHostPort("127.0.0.1", strconv.Itoa(port))
@@ -856,7 +866,6 @@ func Port(c *core.Ctx, port int) Answer {
 			}
 		}
 	}
-	fw := checks.DetectFirewall(c)
 	if !fw.Active {
 		a.add("Firewall", "no active firewall found: if something listens on all addresses, every machine that can reach this one can connect")
 	} else {

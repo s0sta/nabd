@@ -5,6 +5,8 @@ the JSON schema (`nabd/1`), the finding IDs and the exit codes only change in a 
 
 ## Unreleased
 
+- `nabd why port N` gives the same verdict as `nabd`: an open Redis, Docker API, database … on the network is
+  CRIT or WARN there too, with the risk and the fix (it said OK before).
 - README: examples of real output (a healthy server and one with problems, `nabd -q`, `why disk`, `why nginx`,
   `--nagios`, a script), what each sign and exit code means, and how to tell OK from a problem.
 
