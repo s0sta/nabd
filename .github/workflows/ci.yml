@@ -85,14 +85,23 @@ jobs:
           go-version: stable
           cache: false
       - name: install QEMU
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq qemu-user-static >/dev/null
+        run: |
+          sudo apt-get update -qq
+          # qemu-user-static until Ubuntu 24.04; newer releases ship the static emulators in qemu-user
+          sudo apt-get install -y -qq qemu-user-static >/dev/null 2>&1 || sudo apt-get install -y -qq qemu-user >/dev/null
+          q=$(command -v qemu-${{ matrix.qemu }}-static || command -v qemu-${{ matrix.qemu }}) \
+            || { echo "::error::no qemu-${{ matrix.qemu }} on $(. /etc/os-release; echo $PRETTY_NAME)"; exit 1; }
+          echo "QEMU=$q" >> "$GITHUB_ENV"
       - name: go test in the emulator
-        run: env CGO_ENABLED=0 GOARCH=${{ matrix.arch }} ${{ matrix.variant }} go test -count=1 -exec /usr/bin/qemu-${{ matrix.qemu }}-static ./...
+        run: |
+          env CGO_ENABLED=0 GOARCH=${{ matrix.arch }} ${{ matrix.variant }} go test -count=1 -exec "$QEMU" ./... > test.log 2>&1 \
+            || { tail -c 900 test.log | tr '\n' ' ' | sed 's/^/::error::/'; echo; exit 1; }
+          grep -c '^ok' test.log
       - name: check this runner with the ${{ matrix.arch }} binary
         run: |
           env CGO_ENABLED=0 GOARCH=${{ matrix.arch }} ${{ matrix.variant }} go build -trimpath -o nabd ./cmd/nabd
           file nabd
-          q=/usr/bin/qemu-${{ matrix.qemu }}-static
+          q=$QEMU
           $q ./nabd version
           sudo $q ./nabd --json > report.json || test $? -le 3
           grep -q '"schema": "nabd/1"' report.json
@@ -179,27 +188,45 @@ jobs:
       - name: install the packages
         run: |
           ls -la dist
-          docker run --rm -v "$PWD/dist:/d:ro" debian:12 sh -c 'apt-get update -qq && apt-get install -y -qq /d/nabd_amd64.deb >/dev/null && nabd version && test -f /usr/lib/systemd/system/nabd-snapshot.timer'
-          docker run --rm -v "$PWD/dist:/d:ro" fedora:latest sh -c 'dnf install -y -q /d/nabd_amd64.rpm && nabd version && test -f /usr/lib/systemd/system/nabd-snapshot.timer'
-          docker run --rm -v "$PWD/dist:/d:ro" alpine:latest sh -c 'apk add --allow-untrusted -q /d/nabd_amd64.apk && nabd version'
-          docker run --rm -v "$PWD/dist:/d:ro" archlinux:latest sh -c 'pacman -U --noconfirm /d/nabd_amd64.pkg.tar.zst >/dev/null && nabd version'
+          fails=0
+          t() {   # platform image file install-command: install the package, run nabd, report a failure as an annotation
+            echo "== $1 $2 $3"
+            if ! out=$(docker run --rm --platform "$1" -v "$PWD/dist:/d:ro" "$2" sh -c "$4 /d/$3 && nabd version && { nabd --json >/tmp/r.json; test \$? -le 3; } && grep -q nabd/1 /tmp/r.json" 2>&1); then
+              echo "$out"
+              echo "::error::$3 on $2 ($1): $(echo "$out" | tail -n 4 | tr '\n' ' ')"
+              fails=$((fails + 1))
+            fi
+          }
+          t linux/amd64   debian:12        nabd_amd64.deb   "apt-get update -qq && apt-get install -y -qq"
+          t linux/amd64   fedora:latest    nabd_amd64.rpm   "dnf install -y -q"
+          t linux/amd64   alpine:latest    nabd_amd64.apk   "apk add -q --allow-untrusted"
+          t linux/amd64   archlinux:latest nabd_amd64.pkg.tar.zst "pacman -U --noconfirm"
           # old package tools: rpm 4.11 (CentOS 7), dpkg 1.18 (Ubuntu 16.04)
-          docker run --rm -v "$PWD/dist:/d:ro" centos:7 sh -c 'rpm -Uvh /d/nabd_amd64.rpm && nabd version'
-          docker run --rm -v "$PWD/dist:/d:ro" ubuntu:16.04 sh -c 'dpkg -i /d/nabd_amd64.deb && nabd version'
+          t linux/amd64   centos:7         nabd_amd64.rpm   "rpm -Uvh"
+          t linux/amd64   ubuntu:16.04     nabd_amd64.deb   "dpkg -i"
+          docker run --rm -v "$PWD/dist:/d:ro" debian:12 sh -c 'dpkg -i /d/nabd_amd64.deb >/dev/null && test -f /usr/lib/systemd/system/nabd-snapshot.timer' \
+            || { echo "::error::the systemd timer is missing from the .deb"; fails=$((fails + 1)); }
+          test "$fails" -eq 0
       - uses: docker/setup-qemu-action@v3
       - name: install the packages on other CPUs
         run: |
-          t() {   # platform image file install-command
+          fails=0
+          t() {
             echo "== $1 $2 $3"
-            docker run --rm --platform "$1" -v "$PWD/dist:/d:ro" "$2" sh -c "$4 /d/$3 && nabd version && { nabd --json >/tmp/r.json; test \$? -le 3; } && grep -q nabd/1 /tmp/r.json"
+            if ! out=$(docker run --rm --platform "$1" -v "$PWD/dist:/d:ro" "$2" sh -c "$4 /d/$3 && nabd version && { nabd --json >/tmp/r.json; test \$? -le 3; } && grep -q nabd/1 /tmp/r.json" 2>&1); then
+              echo "$out"
+              echo "::error::$3 on $2 ($1): $(echo "$out" | tail -n 4 | tr '\n' ' ')"
+              fails=$((fails + 1))
+            fi
           }
-          t linux/arm64   rockylinux:9  nabd_arm64.rpm   "rpm -Uvh"
-          t linux/arm64   debian:12     nabd_arm64.deb   "dpkg -i"
-          t linux/arm/v7  debian:12     nabd_armv7.deb   "dpkg -i"
-          t linux/arm/v5  debian:12     nabd_armv5.deb   "dpkg -i"
-          t linux/arm/v6  alpine:latest nabd_armv6.apk   "apk add -q --allow-untrusted"
-          t linux/386     debian:12     nabd_386.deb     "dpkg -i"
-          t linux/ppc64le almalinux:9   nabd_ppc64le.rpm "rpm -Uvh"
-          t linux/s390x   ubuntu:24.04  nabd_s390x.deb   "dpkg -i"
-          t linux/riscv64 ubuntu:24.04  nabd_riscv64.deb "dpkg -i"
-          t linux/mips64le debian:12    nabd_mips64le.deb "dpkg -i"
+          t linux/arm64    rockylinux:9  nabd_arm64.rpm    "rpm -Uvh"
+          t linux/arm64    debian:12     nabd_arm64.deb    "dpkg -i"
+          t linux/arm/v7   debian:12     nabd_armv7.deb    "dpkg -i"
+          t linux/arm/v5   debian:12     nabd_armv5.deb    "dpkg -i"
+          t linux/arm/v6   alpine:latest nabd_armv6.apk    "apk add -q --allow-untrusted"
+          t linux/386      debian:12     nabd_386.deb      "dpkg -i"
+          t linux/ppc64le  almalinux:9   nabd_ppc64le.rpm  "rpm -Uvh"
+          t linux/s390x    ubuntu:24.04  nabd_s390x.deb    "dpkg -i"
+          t linux/riscv64  ubuntu:24.04  nabd_riscv64.deb  "dpkg -i"
+          t linux/mips64le debian:12     nabd_mips64le.deb "dpkg -i"
+          test "$fails" -eq 0
