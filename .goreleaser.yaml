@@ -16,8 +16,12 @@ builds:
     env:
       - CGO_ENABLED=0
     goos: [linux]
-    goarch: [amd64, arm64, arm, "386", ppc64le, s390x, riscv64]
-    goarm: ["7"]
+    # Every CPU that Go supports on Linux. The variants are the most compatible
+    # ones: soft-float runs on CPUs with and without a floating-point unit.
+    goarch: [amd64, arm64, arm, "386", ppc64le, ppc64, s390x, riscv64, loong64, mips, mipsle, mips64, mips64le]
+    goarm: ["5", "6", "7"]
+    go386: [softfloat]
+    gomips: [softfloat]
     flags: [-trimpath]
     ldflags:
       - -s -w -X main.version={{ .Version }}
@@ -118,12 +122,14 @@ release:
     ## Install
 
     ```sh
+    # your machine type (amd64, arm64, armv7, 386, ppc64le, s390x, riscv64, ...)
+    A=$(uname -m | sed -e s/x86_64/amd64/ -e s/aarch64/arm64/ -e 's/armv\([5-7]\).*/armv\1/' -e 's/i[3-6]86/386/' -e s/loongarch64/loong64/)
     # Debian, Ubuntu
-    curl -fLO https://github.com/s0sta/nabd/releases/download/{{ .Tag }}/nabd_amd64.deb && sudo apt install ./nabd_amd64.deb
+    curl -fLO https://github.com/s0sta/nabd/releases/download/{{ .Tag }}/nabd_$A.deb && sudo apt install ./nabd_$A.deb
     # Fedora, RHEL, Rocky, Alma, openSUSE
-    sudo rpm -Uvh https://github.com/s0sta/nabd/releases/download/{{ .Tag }}/nabd_amd64.rpm
+    sudo rpm -Uvh https://github.com/s0sta/nabd/releases/download/{{ .Tag }}/nabd_$A.rpm
     # any Linux
-    curl -fL https://github.com/s0sta/nabd/releases/download/{{ .Tag }}/nabd_linux_amd64.tar.gz | tar -xz nabd && sudo install -m 755 nabd /usr/local/bin/
+    curl -fL https://github.com/s0sta/nabd/releases/download/{{ .Tag }}/nabd_linux_$A.tar.gz | tar -xz nabd && sudo install -m 755 nabd /usr/local/bin/
     ```
 
     Verify: `sha256sum --check --ignore-missing SHA256SUMS` and `gh attestation verify FILE --repo s0sta/nabd`.

@@ -30,9 +30,13 @@ jobs:
       - run: go test -race ./...
       - name: build every architecture
         run: |
-          for arch in amd64 arm64 arm 386 ppc64le s390x riscv64 mips64le loong64; do
+          for arch in $(go tool dist list | grep '^linux/' | cut -d/ -f2); do
             echo "== $arch"; CGO_ENABLED=0 GOOS=linux GOARCH=$arch go build -o /dev/null ./cmd/nabd
           done
+          for v in 5 6 7; do CGO_ENABLED=0 GOARCH=arm GOARM=$v go build -o /dev/null ./cmd/nabd; done
+          for a in mips mipsle; do CGO_ENABLED=0 GOARCH=$a GOMIPS=softfloat go build -o /dev/null ./cmd/nabd; done
+          for a in mips64 mips64le; do CGO_ENABLED=0 GOARCH=$a GOMIPS64=softfloat go build -o /dev/null ./cmd/nabd; done
+          CGO_ENABLED=0 GOARCH=386 GO386=softfloat go build -o /dev/null ./cmd/nabd
       - name: build the release binary
         if: matrix.go == 'stable'
         run: CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o nabd ./cmd/nabd
@@ -52,6 +56,49 @@ jobs:
           name: nabd
           path: nabd
 
+  cpus:
+    name: tests on ${{ matrix.arch }}${{ matrix.variant && format(' ({0})', matrix.variant) || '' }} (QEMU)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # the release builds (.goreleaser.yaml), run in an emulator
+          - { arch: "386", qemu: i386, variant: GO386=softfloat }
+          - { arch: arm, qemu: arm, variant: GOARM=5 }
+          - { arch: arm, qemu: arm, variant: GOARM=6 }
+          - { arch: arm, qemu: arm, variant: GOARM=7 }
+          - { arch: arm64, qemu: aarch64 }
+          - { arch: loong64, qemu: loongarch64 }
+          - { arch: mips, qemu: mips, variant: GOMIPS=softfloat }
+          - { arch: mipsle, qemu: mipsel, variant: GOMIPS=softfloat }
+          - { arch: mips64, qemu: mips64, variant: GOMIPS64=softfloat }
+          - { arch: mips64le, qemu: mips64el, variant: GOMIPS64=softfloat }
+          - { arch: ppc64, qemu: ppc64 }
+          - { arch: ppc64le, qemu: ppc64le }
+          - { arch: riscv64, qemu: riscv64 }
+          - { arch: s390x, qemu: s390x }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+          cache: false
+      - name: install QEMU
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq qemu-user-static >/dev/null
+      - name: go test in the emulator
+        run: env CGO_ENABLED=0 GOARCH=${{ matrix.arch }} ${{ matrix.variant }} go test -count=1 -exec /usr/bin/qemu-${{ matrix.qemu }}-static ./...
+      - name: check this runner with the ${{ matrix.arch }} binary
+        run: |
+          env CGO_ENABLED=0 GOARCH=${{ matrix.arch }} ${{ matrix.variant }} go build -trimpath -o nabd ./cmd/nabd
+          file nabd
+          q=/usr/bin/qemu-${{ matrix.qemu }}-static
+          $q ./nabd version
+          sudo $q ./nabd --json > report.json || test $? -le 3
+          grep -q '"schema": "nabd/1"' report.json
+          if grep -q '\.error"' report.json; then echo "a check failed (a bug)"; exit 1; fi
+          $q ./nabd why disk / >/dev/null || true
+
   distros:
     name: run on ${{ matrix.image }}
     needs: test
@@ -59,16 +106,39 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # old and new versions of each family: one static binary must run on all of them
         image:
-          - debian:12
-          - ubuntu:22.04
-          - ubuntu:24.04
-          - fedora:latest
+          - centos:7
+          - rockylinux:8
           - rockylinux:9
           - almalinux:8
-          - archlinux:latest
+          - almalinux:9
+          - almalinux:10
+          - oraclelinux:8
+          - oraclelinux:9
+          - quay.io/centos/centos:stream9
+          - quay.io/centos/centos:stream10
+          - amazonlinux:2
+          - amazonlinux:2023
+          - fedora:latest
+          - fedora:rawhide
+          - debian:10
+          - debian:11
+          - debian:12
+          - debian:13
+          - ubuntu:16.04
+          - ubuntu:18.04
+          - ubuntu:20.04
+          - ubuntu:22.04
+          - ubuntu:24.04
+          - alpine:3.14
           - alpine:latest
+          - alpine:edge
           - opensuse/leap:15.6
+          - opensuse/tumbleweed
+          - archlinux:latest
+          - kalilinux/kali-rolling
+          - gentoo/stage3
     steps:
       - uses: actions/download-artifact@v4
         with:
@@ -113,3 +183,23 @@ jobs:
           docker run --rm -v "$PWD/dist:/d:ro" fedora:latest sh -c 'dnf install -y -q /d/nabd_amd64.rpm && nabd version && test -f /usr/lib/systemd/system/nabd-snapshot.timer'
           docker run --rm -v "$PWD/dist:/d:ro" alpine:latest sh -c 'apk add --allow-untrusted -q /d/nabd_amd64.apk && nabd version'
           docker run --rm -v "$PWD/dist:/d:ro" archlinux:latest sh -c 'pacman -U --noconfirm /d/nabd_amd64.pkg.tar.zst >/dev/null && nabd version'
+          # old package tools: rpm 4.11 (CentOS 7), dpkg 1.18 (Ubuntu 16.04)
+          docker run --rm -v "$PWD/dist:/d:ro" centos:7 sh -c 'rpm -Uvh /d/nabd_amd64.rpm && nabd version'
+          docker run --rm -v "$PWD/dist:/d:ro" ubuntu:16.04 sh -c 'dpkg -i /d/nabd_amd64.deb && nabd version'
+      - uses: docker/setup-qemu-action@v3
+      - name: install the packages on other CPUs
+        run: |
+          t() {   # platform image file install-command
+            echo "== $1 $2 $3"
+            docker run --rm --platform "$1" -v "$PWD/dist:/d:ro" "$2" sh -c "$4 /d/$3 && nabd version && { nabd --json >/tmp/r.json; test \$? -le 3; } && grep -q nabd/1 /tmp/r.json"
+          }
+          t linux/arm64   rockylinux:9  nabd_arm64.rpm   "rpm -Uvh"
+          t linux/arm64   debian:12     nabd_arm64.deb   "dpkg -i"
+          t linux/arm/v7  debian:12     nabd_armv7.deb   "dpkg -i"
+          t linux/arm/v5  debian:12     nabd_armv5.deb   "dpkg -i"
+          t linux/arm/v6  alpine:latest nabd_armv6.apk   "apk add -q --allow-untrusted"
+          t linux/386     debian:12     nabd_386.deb     "dpkg -i"
+          t linux/ppc64le almalinux:9   nabd_ppc64le.rpm "rpm -Uvh"
+          t linux/s390x   ubuntu:24.04  nabd_s390x.deb   "dpkg -i"
+          t linux/riscv64 ubuntu:24.04  nabd_riscv64.deb "dpkg -i"
+          t linux/mips64le debian:12    nabd_mips64le.deb "dpkg -i"

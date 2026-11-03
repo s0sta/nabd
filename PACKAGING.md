@@ -45,7 +45,7 @@ when needed.
 | [packaging/rpm](packaging/rpm) | Fedora, EPEL, Copr | follows the Fedora Go packaging guidelines (`%gometa`, `%gobuild`, `%gocheck`); [.copr/Makefile](.copr/Makefile) makes the source RPM for Copr |
 | [packaging/aur](packaging/aur) | Arch Linux (AUR): `nabd` (from source) and `nabd-bin` (release binary) | with `.SRCINFO`; the `aur` workflow publishes both after every release |
 | [packaging/alpine](packaging/alpine) | Alpine (aports) | run `abuild checksum` for a new version |
-| [.goreleaser.yaml](.goreleaser.yaml) | GitHub releases | .deb, .rpm, .apk and Arch packages and static tarballs for 7 architectures |
+| [.goreleaser.yaml](.goreleaser.yaml) | GitHub releases | .deb, .rpm, .apk and Arch packages and static tarballs for 15 builds (every Linux CPU Go supports) |
 
 Every change in `packaging/` is tested by the [packaging workflow](.github/workflows/packaging.yml): it builds each
 package in its own distribution the way the distribution does (dpkg-buildpackage + lintian on Debian 12, Debian

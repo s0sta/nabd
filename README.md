@@ -29,11 +29,14 @@ When a server is in trouble, the answer is spread over a dozen tools: `df`, `du`
 
 ## Install
 
-From the [latest release](https://github.com/s0sta/nabd/releases/latest): packages and static binaries for amd64, arm64, armv7, 386, ppc64le, s390x and riscv64.
+From the [latest release](https://github.com/s0sta/nabd/releases/latest): packages and static binaries for every CPU that
+Linux runs on with Go: amd64, arm64, armv7, armv6, armv5, 386, ppc64le, ppc64, s390x, riscv64, loong64, mips, mipsle,
+mips64 and mips64le. One static binary, no libraries: it runs on any distribution and version with Linux 3.2 or newer
+(RHEL/CentOS 7 and newer, Debian 8+, Ubuntu 14.04+, Alpine, Amazon Linux, openSUSE, Arch, Raspberry Pi OS …).
 
 ```sh
-# Your machine type in the release names (amd64, arm64, armv7, 386, ppc64le, s390x, riscv64)
-A=$(uname -m | sed -e s/x86_64/amd64/ -e s/aarch64/arm64/ -e s/armv7l/armv7/ -e 's/i[3-6]86/386/')
+# Your machine type in the release names (amd64, arm64, armv7, 386, ppc64le, s390x, riscv64, ...)
+A=$(uname -m | sed -e s/x86_64/amd64/ -e s/aarch64/arm64/ -e 's/armv\([5-7]\).*/armv\1/' -e 's/i[3-6]86/386/' -e s/loongarch64/loong64/)
 
 # Debian, Ubuntu
 curl -fLO https://github.com/s0sta/nabd/releases/latest/download/nabd_$A.deb
@@ -51,7 +54,8 @@ curl -fL https://github.com/s0sta/nabd/releases/latest/download/nabd_linux_$A.ta
 sudo install -m 755 nabd /usr/local/bin/
 ```
 
-The first line picks the file for your machine (`x86_64` → `amd64`, `aarch64` → `arm64`). Every file is listed in `SHA256SUMS` and has a signed build provenance:
+The first line picks the file for your machine (`x86_64` → `amd64`, `aarch64` → `arm64`, `armv7l` → `armv7`). On MIPS
+`uname -m` does not show the byte order: use `mips`/`mips64` (big-endian) or `mipsle`/`mips64le` (little-endian). Every file is listed in `SHA256SUMS` and has a signed build provenance:
 
 ```sh
 gh attestation verify nabd_amd64.deb --repo s0sta/nabd
