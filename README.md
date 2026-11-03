@@ -32,23 +32,26 @@ When a server is in trouble, the answer is spread over a dozen tools: `df`, `du`
 From the [latest release](https://github.com/s0sta/nabd/releases/latest): packages and static binaries for amd64, arm64, armv7, 386, ppc64le, s390x and riscv64.
 
 ```sh
+# Your machine type in the release names (amd64, arm64, armv7, 386, ppc64le, s390x, riscv64)
+A=$(uname -m | sed -e s/x86_64/amd64/ -e s/aarch64/arm64/ -e s/armv7l/armv7/ -e 's/i[3-6]86/386/')
+
 # Debian, Ubuntu
-curl -fLO https://github.com/s0sta/nabd/releases/latest/download/nabd_amd64.deb
-sudo apt install ./nabd_amd64.deb
+curl -fLO https://github.com/s0sta/nabd/releases/latest/download/nabd_$A.deb
+sudo apt install ./nabd_$A.deb
 
 # Fedora, RHEL, Rocky, Alma, openSUSE
-sudo rpm -Uvh https://github.com/s0sta/nabd/releases/latest/download/nabd_amd64.rpm
+sudo rpm -Uvh https://github.com/s0sta/nabd/releases/latest/download/nabd_$A.rpm
 
 # Alpine
-curl -fLO https://github.com/s0sta/nabd/releases/latest/download/nabd_amd64.apk
-sudo apk add --allow-untrusted ./nabd_amd64.apk
+curl -fLO https://github.com/s0sta/nabd/releases/latest/download/nabd_$A.apk
+sudo apk add --allow-untrusted ./nabd_$A.apk
 
 # Any Linux: one static binary
-curl -fL https://github.com/s0sta/nabd/releases/latest/download/nabd_linux_amd64.tar.gz | tar -xz nabd
+curl -fL https://github.com/s0sta/nabd/releases/latest/download/nabd_linux_$A.tar.gz | tar -xz nabd
 sudo install -m 755 nabd /usr/local/bin/
 ```
 
-Use `arm64`, `armv7`, `386`, `ppc64le`, `s390x` or `riscv64` instead of `amd64` for other machines. Every file is listed in `SHA256SUMS` and has a signed build provenance:
+The first line picks the file for your machine (`x86_64` → `amd64`, `aarch64` → `arm64`). Every file is listed in `SHA256SUMS` and has a signed build provenance:
 
 ```sh
 gh attestation verify nabd_amd64.deb --repo s0sta/nabd
