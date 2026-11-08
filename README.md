@@ -390,6 +390,10 @@ nabd is easy to package: one Go module with no dependencies, no cgo, and tests t
 
 False alarms and missed problems are the most useful reports. Open an issue with the `nabd --json` output (remove what is private). Each check is a small Go function, tested against a fake machine; see [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## If nabd helped you
+
+A star on this repo helps other engineers find it. It is the only marketing this project has.
+
 ## License
 
 [MIT](LICENSE) © 2026 Hosam Hani ([s0sta](https://s0sta.com))
